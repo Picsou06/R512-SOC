@@ -59,11 +59,11 @@ duplicate_config(
 
 ## Avancement
 
-| Phase | Contenu | Statut |
-|---|---|---|
-| 1 | Chargement du JSON, affichage du magasin | Fait |
-| 2 | Agents qui se deplacent vers un objectif en evitant les murs | A venir |
-| 3 | Gestion des contacts et desactivation | A venir |
-| 4 | Ressource limitee, prise d'objets, sortie | A venir |
-| 5 | Collecte des indicateurs et comparaison de configurations | A venir |
-| 6 | Evolutions : file d'attente, entree progressive, caisses, regles d'acces | A venir |
+| Phase | Contenu                                                                  | Statut  |
+| ----- | ------------------------------------------------------------------------ | ------- |
+| 1     | Chargement du JSON, affichage du magasin                                 | Fait    |
+| 2     | Agents qui se deplacent vers un objectif en evitant les murs             | A venir |
+| 3     | Gestion des contacts et desactivation                                    | A venir |
+| 4     | Ressource limitee, prise d'objets, sortie                                | A venir |
+| 5     | Collecte des indicateurs et comparaison de configurations                | A venir |
+| 6     | Evolutions : file d'attente, entree progressive, caisses, regles d'acces | A venir |
