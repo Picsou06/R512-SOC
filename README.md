@@ -59,11 +59,17 @@ duplicate_config(
 
 ## Avancement
 
-| Phase | Contenu                                                                  | Statut  |
-| ----- | ------------------------------------------------------------------------ | ------- |
-| 1     | Chargement du JSON, affichage du magasin                                 | Fait    |
-| 2     | Agents qui se deplacent vers un objectif en evitant les murs             | A venir |
-| 3     | Gestion des contacts et desactivation                                    | A venir |
-| 4     | Ressource limitee, prise d'objets, sortie                                | A venir |
-| 5     | Collecte des indicateurs et comparaison de configurations                | A venir |
-| 6     | Evolutions : file d'attente, entree progressive, caisses, regles d'acces | A venir |
+Le projet avance par modeles successifs, du plus simple au plus complet (planning
+detaille dans [`cdc.md`](cdc.md)).
+
+| Mois | Semaines | Modele | Phase | Contenu                                                                                 | Statut  |
+| ---- | -------- | ------ | ----- | --------------------------------------------------------------------------------------- | ------- |
+| 1    | 1        | M0     | 1     | Le magasin seul, sans client : chargement du JSON, affichage du magasin                 | A venir |
+| 1    | 2 - 4    | M1     | 2     | Plusieurs clients qui s'ignorent et vont vers un objectif en contournant murs et rayons | A venir |
+| 2    | 5 - 6    | M2     | 3     | Les contacts entre clients                                                              | A venir |
+| 2    | 7        | M3     | 4     | La ressource limitee et la sortie                                                       | A venir |
+| 2    | 8        | M4     | 5     | Les indicateurs et la comparaison de configurations                                     | A venir |
+| 3    | 9        |        |       | La validation chiffree du modele                                                        | A venir |
+| 3    | 10       | M5     | 6     | Les evolutions : file d'attente, entree progressive, caisses, regles d'acces            | A venir |
+| 3    | 11 - 12  |        |       | Redaction du rapport, rendu du rapport et du code le 5 janvier 2027                     | A venir |
+|      |          |        |       | Transparents (18 janvier 2027) et soutenance (19 janvier 2027)                          | A venir |
