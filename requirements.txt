@@ -1,0 +1,2 @@
+# Dependances Python du projet (installees avec : pip install -r requirements.txt)
+mesa
