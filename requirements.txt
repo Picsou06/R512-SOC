@@ -1,0 +1,4 @@
+mesa[viz]
+networkx
+matplotlib
+watchfiles
