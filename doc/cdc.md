@@ -7,6 +7,7 @@ BUT Informatique, IUT Nice Sophia Antipolis.
 
 On simule des clients qui se déplacent dans un magasin lors d'un pic d'affluence
 (par exemple l'ouverture des portes pour un produit en quantité limitée). Les clients
+entrent petit à petit, vont chercher le produit, passent en caisse puis sortent. Ce
 sont des agents (Python + Mesa) qui peuvent entrer en contact les uns avec les autres ;
 le modèle de contact s'inspire des travaux de Bertrand Maury sur les mouvements de foule.
 
@@ -45,9 +46,13 @@ Une fois la problématique traitée, on ajoute d'autres paramètres pour répond
 questions plus proches de la gestion réelle d'un magasin. Le but reste le même : que les
 clients soient contents, donc le moins écrasés possible.
 
+La configuration de référence contient déjà une entrée progressive (un client toutes
+les X secondes) et des caisses avant la sortie. Les évolutions font varier ces
+paramètres et en ajoutent d'autres :
+
 | Paramètre              | Ce qu'on fait varier                                             | Question associée                                                                 |
 | ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Mode d'ouverture       | Ouverture d'un coup, ou entrée des clients petit à petit (un groupe toutes les X secondes) | Vaut-il mieux ouvrir les portes d'un coup ou faire entrer les clients progressivement ? |
+| Rythme d'entrée        | L'intervalle entre deux entrées, jusqu'à l'ouverture d'un coup (tous les clients à l'instant 0) | Vaut-il mieux ouvrir les portes d'un coup ou faire entrer les clients progressivement, et à quel rythme ? |
 | Placement des produits | L'endroit où sont placés les produits dans le magasin, regroupés ou dispersés | Où placer les produits pour répartir les clients au lieu de les concentrer ?      |
 | Nombre de caisses      | Le nombre de caisses ouvertes avant la sortie                    | Combien de caisses faut-il pour éviter l'engorgement à la sortie ?                |
 | Règles d'accès         | Le nombre maximum de clients dans le magasin, un sens de circulation | Limiter l'accès réduit-il les contacts sans trop allonger l'attente ?             |
@@ -56,10 +61,6 @@ Ces évolutions passent après la problématique et sa validation : elles sont t
 une par une, dans cet ordre, selon le temps restant. Chacune est comparée à la
 configuration de référence avec les mêmes indicateurs.
 
-Avec l'entrée progressive et les caisses, les clients peuvent aussi attendre : on
-ajoutera alors le temps d'attente (dehors et en caisse) aux indicateurs, parce qu'un
-client qui n'est pas bousculé mais qui attend très longtemps n'est pas content non plus.
-
 ## Indicateurs
 
 - Fréquence des contacts entre clients.
@@ -67,6 +68,11 @@ client qui n'est pas bousculé mais qui attend très longtemps n'est pas content
 
 Ces deux indicateurs mesurent la satisfaction des clients : moins il y a de contacts
 et moins ils sont intenses, plus les clients sont contents.
+
+Comme les clients entrent petit à petit et passent en caisse, ils peuvent aussi
+attendre. On suit donc également le temps d'attente (dehors et en caisse) et le temps
+total passé dans le magasin : un client qui n'est pas bousculé mais qui attend très
+longtemps n'est pas content non plus.
 
 Leur définition exacte (formule et unité) sera fixée avec le modèle M2.
 
@@ -133,10 +139,10 @@ résultats), conclusion et références. Un point bonus est accordé s'il est r�
 | ----- | ---------------------------------------------------------------------------- |
 | 1     | Chargement du JSON, affichage du magasin                                     |
 | 2     | Agents qui se déplacent vers un objectif en évitant les murs               |
-| 3     | Gestion des contacts et désactivation                                       |
-| 4     | Ressource limitée, prise d'objets, sortie                                   |
+| 3     | Gestion des contacts, file d'attente aux caisses et désactivation           |
+| 4     | Ressource limitée, prise d'objets, entrée progressive, caisses, sortie      |
 | 5     | Collecte des indicateurs et comparaison de configurations                    |
-| 6     | Évolutions : file d'attente, entrée progressive, caisses, règles d'accès |
+| 6     | Évolutions : rythme d'entrée, placement des produits, nombre de caisses, règles d'accès |
 
 Les phases 1 à 5 répondent à la problématique. La phase 6 correspond aux paramètres
 supplémentaires.
@@ -156,8 +162,8 @@ au rendu du rapport le mardi 5 janvier 2027. La soutenance a lieu deux semaines 
 | ---- | -------- | ----------------------------- | ------- | ----------------------------------------------------------------------------------------------- | ----- |
 | 1    | 1        | 12 au 18 octobre              | M0      | Le magasin seul, sans client                                                                    | 1     |
 | 1    | 2 - 4    | 19 octobre au 8 novembre      | M1      | Plusieurs clients qui s'ignorent et vont vers un objectif en contournant les murs et les rayons | 2     |
-| 2    | 5 - 6    | 9 au 22 novembre              | M2      | Les contacts entre clients                                                                      | 3     |
-| 2    | 7        | 23 au 29 novembre             | M3      | La ressource limitée et la sortie                                                              | 4     |
+| 2    | 5 - 6    | 9 au 22 novembre              | M2      | Les contacts entre clients et la file d'attente aux caisses                                     | 3     |
+| 2    | 7        | 23 au 29 novembre             | M3      | La ressource limitée, l'entrée progressive, les caisses et la sortie                           | 4     |
 | 2    | 8        | 30 novembre au 6 décembre    | M4      | Les indicateurs, les figures et la comparaison de configurations                                | 5     |
 | 3    | 9        | 7 au 13 décembre             |         | La validation chiffrée du modèle                                                              |       |
 | 3    | 10       | 14 au 20 décembre            | M5      | Les évolutions (paramètres supplémentaires), selon le temps restant                          | 6     |
@@ -188,27 +194,37 @@ au rendu du rapport le mardi 5 janvier 2027. La soutenance a lieu deux semaines 
 
 ### Mois 2 : les contacts et le scénario complet
 
-**M2 : les contacts entre clients (semaines 5 et 6)**
+**M2 : les contacts entre clients et la file d'attente (semaines 5 et 6)**
 
 - On modélise : chaque client devient un disque. Deux clients sont en contact quand
   leurs disques se touchent ; ils ne peuvent pas se superposer (idée du modèle de
   Bertrand Maury : chacun avance comme il le souhaite, puis on corrige les positions
   pour que personne ne se chevauche).
+- On modélise aussi la file d'attente : comme les clients ne peuvent plus se superposer,
+  une caisse ne sert qu'un client à la fois. Les suivants attendent leur tour l'un
+  derrière l'autre dans l'allée de la caisse, et avancent d'une place à chaque client
+  servi. Un client choisit sa caisse selon la distance et la longueur de la file.
 - Simplification : tous les clients ont la même taille et la même vitesse ; la
-  correction est la plus simple possible (on écarte les deux clients concernés).
+  correction est la plus simple possible (on écarte les deux clients concernés) ;
+  une file par caisse, premier arrivé, premier servi, sans changement de file.
 - Vérification : deux clients lancés l'un vers l'autre se bloquent sans se traverser ;
-  on mesure le chevauchement maximal restant.
-- On mesure pour la première fois la fréquence et l'intensité des contacts.
+  on mesure le chevauchement maximal restant. Une caisse ne sert jamais deux clients
+  en même temps, et l'ordre de passage respecte l'ordre d'arrivée dans la file.
+- On mesure pour la première fois la fréquence et l'intensité des contacts, ainsi que
+  le temps d'attente en caisse.
 
-**M3 : la ressource limitée et la sortie (semaine 7)**
+**M3 : la ressource limitée, les caisses et la sortie (semaine 7)**
 
-- On modélise : tous les clients veulent le même produit, disponible en quantité
-  limitée. Un client qui atteint la ressource prend un objet, puis se dirige vers la
-  sortie et quitte le magasin (il est désactivé).
-- Simplification : une seule ressource, tous les clients sont présents dès le départ
-  (ouverture d'un coup), pas de caisse.
-- Vérification : le stock ne devient jamais négatif et tous les clients finissent par
-  sortir. C'est la **configuration de référence**.
+- On modélise : les clients entrent petit à petit, un toutes les X secondes. Tous
+  veulent le même produit, disponible en quantité limitée. Un client qui atteint la
+  ressource prend un objet (cela lui prend quelques secondes), choisit une caisse
+  ouverte, attend son tour dans la file (modèle M2) et paie, puis se dirige vers la
+  sortie et quitte le magasin (il est désactivé). S'il ne reste plus de produit, il repart sans passer en caisse.
+- Simplification : une seule ressource, un rythme d'entrée fixe, des temps de prise et
+  de paiement fixes.
+- Vérification : le stock ne devient jamais négatif, chaque client passe par une seule
+  caisse à la fois, une caisse ne sert qu'un client à la fois, et tous les clients
+  finissent par sortir. C'est la **configuration de référence**.
 
 **M4 : les indicateurs et la comparaison (semaine 8)**
 
@@ -238,12 +254,11 @@ au rendu du rapport le mardi 5 janvier 2027. La soutenance a lieu deux semaines 
 
 Ajoutés un par un, dans cet ordre, selon le temps restant :
 
-1. Entrée progressive : les clients entrent petit à petit au lieu d'être tous présents
-   à l'ouverture.
+1. Rythme d'entrée : on fait varier l'intervalle entre deux entrées, jusqu'à
+   l'ouverture d'un coup (tous les clients présents à l'instant 0).
 2. Placement des produits : plusieurs produits à des endroits différents, chaque client
    a sa propre liste.
-3. Caisses et file d'attente : les clients passent par une caisse avant de sortir, on
-   fait varier le nombre de caisses.
+3. Nombre de caisses : on fait varier le nombre de caisses ouvertes.
 4. Règles d'accès : nombre maximum de clients dans le magasin, sens de circulation.
 
 Pour chaque ajout, on refait la comparaison du modèle M4.
