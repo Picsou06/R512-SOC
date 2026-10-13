@@ -36,16 +36,29 @@ Paramètres de la problématique :
 | Position de la ressource limitée | Où placer le produit convoité pour limiter les bousculades ? |
 | Nombre de points de passage       | Multiplier les passages fluidifie-t-il la circulation ?        |
 
-Paramètres supplémentaires, à ajouter dans un second temps :
+Tous les paramètres sont regroupés dans un fichier de configuration : on doit pouvoir
+jouer avec facilement, en changer un seul et relancer la simulation pour comparer.
 
-| Paramètre             | Question associée                                                                                    |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| Mode d'ouverture       | Que se passe-t-il si on ouvre le magasin d'un coup, ou si on fait entrer les clients petit à petit ? |
-| Placement des produits | Comment la disposition des produits dans le magasin change-t-elle les contacts ?                      |
-| Nombre de caisses      | Combien de caisses faut-il pour éviter l'engorgement à la sortie ?                                  |
+## Évolutions prévues : paramètres supplémentaires
 
-Tous ces paramètres doivent pouvoir être modifiés facilement pour jouer avec et
-comparer les résultats.
+Une fois la problématique traitée, on ajoute d'autres paramètres pour répondre à des
+questions plus proches de la gestion réelle d'un magasin. Le but reste le même : que les
+clients soient contents, donc le moins écrasés possible.
+
+| Paramètre              | Ce qu'on fait varier                                             | Question associée                                                                 |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Mode d'ouverture       | Ouverture d'un coup, ou entrée des clients petit à petit (un groupe toutes les X secondes) | Vaut-il mieux ouvrir les portes d'un coup ou faire entrer les clients progressivement ? |
+| Placement des produits | L'endroit où sont placés les produits dans le magasin, regroupés ou dispersés | Où placer les produits pour répartir les clients au lieu de les concentrer ?      |
+| Nombre de caisses      | Le nombre de caisses ouvertes avant la sortie                    | Combien de caisses faut-il pour éviter l'engorgement à la sortie ?                |
+| Règles d'accès         | Le nombre maximum de clients dans le magasin, un sens de circulation | Limiter l'accès réduit-il les contacts sans trop allonger l'attente ?             |
+
+Ces évolutions passent après la problématique et sa validation : elles sont traitées
+une par une, dans cet ordre, selon le temps restant. Chacune est comparée à la
+configuration de référence avec les mêmes indicateurs.
+
+Avec l'entrée progressive et les caisses, les clients peuvent aussi attendre : on
+ajoutera alors le temps d'attente (dehors et en caisse) aux indicateurs, parce qu'un
+client qui n'est pas bousculé mais qui attend très longtemps n'est pas content non plus.
 
 ## Indicateurs
 
