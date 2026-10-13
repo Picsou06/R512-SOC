@@ -77,7 +77,7 @@ validation appuyée sur des critères objectifs et chiffrés, pas sur une impres
 visuelle. Les quatre vérifications ci-dessous sont obligatoires et devront figurer
 dans le rapport, avec les écarts mesurés.
 
-| Vérification                     | Ce qu'on mesure dans notre modèle                                                                                                                                                                                                          |
+| Vérification                     | Ce qu'on mesure dans notre modèle |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Invariants                        | Clients présents + clients sortis = clients au départ. Stock restant + objets pris = stock de départ. Chevauchement maximal entre deux clients (interpénétration). Nombre de clients dans un rayon ou hors du magasin (doit valoir 0). |
 | Sensibilité numérique           | Les indicateurs changent-ils quand on divise le pas de temps par 2, par 4 ? Quand on augmente le nombre de clients ? Les conclusions doivent rester les mêmes.                                                                             |
