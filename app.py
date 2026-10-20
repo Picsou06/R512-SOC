@@ -9,7 +9,7 @@ from mesa.visualization.utils import force_update, update_counter
 from simulation.client import STATES
 from simulation.model import StoreModel
 from simulation.visualization import STATE_COLORS
-from simulation.web_view import Frame, collision_boxes_svg, legend, store_svg, trajectories_svg
+from simulation.web_view import Frame, collision_boxes_svg, store_svg, trajectories_svg
 
 DEFAULT_CONFIG = "configs/reference.json"
 MANY_CLIENTS = 10
@@ -106,8 +106,6 @@ def StoreView(model, transition_ms, collision_boxes):
 						  children=moving),
 		],
 	)
-	solara.HTML(tag="div", unsafe_innerHTML=legend(model.config),
-				style="margin-top:8px;display:flex;flex-wrap:wrap")
 
 
 @solara.component
