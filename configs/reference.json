@@ -1,83 +1,83 @@
 {
-	"nom": "reference",
-	"description": "Configuration de reference.",
+	"name": "reference",
+	"description": "Reference configuration.",
 
-	"parametres": {
-		"pas_de_temps": 0.1,
-		"rayon_boules": 0.25,
-		"distance_caisse": 0.6,
-		"temps_paiement_fixe": 5.0,
-		"temps_par_article": 2.0
+	"parameters": {
+		"time_step": 0.1,
+		"ball_radius": 0.25,
+		"checkout_distance": 0.6,
+		"payment_base_time": 5.0,
+		"payment_time_per_item": 2.0
 	},
 
-	"affichage": {
-		"boites_collision": true
+	"display": {
+		"collision_boxes": true
 	},
 
-	"comportement_client": {
-		"rayon": 0.25,
-		"vitesse_max": 2.0,
+	"client_behavior": {
+		"radius": 0.25,
+		"max_speed": 2.0,
 		"acceleration": 1.0,
 		"deceleration": 2.0,
-		"temps_prise": 3.0
+		"pick_time": 3.0
 	},
 
-	"magasin": {
-		"largeur": 30.0,
-		"hauteur": 24.0
+	"store": {
+		"width": 30.0,
+		"height": 24.0
 	},
 
-	"portes": [
-		{ "nom": "baie_gauche", "type": "entree", "mur": "bas", "x": 5.0,  "y": 0.0, "largeur": 3.0 },
-		{ "nom": "baie_droite", "type": "sortie", "mur": "bas", "x": 22.0, "y": 0.0, "largeur": 3.0 }
+	"doors": [
+		{ "name": "left_bay",  "type": "entrance", "wall": "bottom", "x": 5.0,  "y": 0.0, "width": 3.0 },
+		{ "name": "right_bay", "type": "exit",     "wall": "bottom", "x": 22.0, "y": 0.0, "width": 3.0 }
 	],
 
-	"caisses": [
-		{ "id": "caisse_1", "x": 9.6,  "y": 3.0, "largeur": 0.8, "hauteur": 2.0, "ouverte": true },
-		{ "id": "caisse_2", "x": 11.6, "y": 3.0, "largeur": 0.8, "hauteur": 2.0, "ouverte": false },
-		{ "id": "caisse_3", "x": 13.6, "y": 3.0, "largeur": 0.8, "hauteur": 2.0, "ouverte": true },
-		{ "id": "caisse_4", "x": 15.6, "y": 3.0, "largeur": 0.8, "hauteur": 2.0, "ouverte": true },
-		{ "id": "caisse_5", "x": 17.6, "y": 3.0, "largeur": 0.8, "hauteur": 2.0, "ouverte": true },
-		{ "id": "caisse_6", "x": 19.6, "y": 3.0, "largeur": 0.8, "hauteur": 2.0, "ouverte": true }
+	"checkouts": [
+		{ "id": "checkout_1", "x": 9.6,  "y": 3.0, "width": 0.8, "height": 2.0, "open": true },
+		{ "id": "checkout_2", "x": 11.6, "y": 3.0, "width": 0.8, "height": 2.0, "open": false },
+		{ "id": "checkout_3", "x": 13.6, "y": 3.0, "width": 0.8, "height": 2.0, "open": true },
+		{ "id": "checkout_4", "x": 15.6, "y": 3.0, "width": 0.8, "height": 2.0, "open": true },
+		{ "id": "checkout_5", "x": 17.6, "y": 3.0, "width": 0.8, "height": 2.0, "open": true },
+		{ "id": "checkout_6", "x": 19.6, "y": 3.0, "width": 0.8, "height": 2.0, "open": true }
 	],
 
-	"murs": [
-		{ "id": "rayon_1",  "type": "rayon", "x": 7.0,  "y": 8.0,  "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_2",  "type": "rayon", "x": 7.0,  "y": 15.0, "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_3",  "type": "rayon", "x": 10.0, "y": 8.0,  "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_4",  "type": "rayon", "x": 10.0, "y": 15.0, "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_5",  "type": "rayon", "x": 13.0, "y": 8.0,  "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_6",  "type": "rayon", "x": 13.0, "y": 15.0, "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_7",  "type": "rayon", "x": 16.0, "y": 8.0,  "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_8",  "type": "rayon", "x": 16.0, "y": 15.0, "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_9",  "type": "rayon", "x": 19.0, "y": 8.0,  "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_10", "type": "rayon", "x": 19.0, "y": 15.0, "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_11", "type": "rayon", "x": 22.0, "y": 8.0,  "largeur": 1.0, "hauteur": 5.0 },
-		{ "id": "rayon_12", "type": "rayon", "x": 22.0, "y": 15.0, "largeur": 1.0, "hauteur": 5.0 },
+	"walls": [
+		{ "id": "shelf_1",  "type": "shelf", "x": 7.0,  "y": 8.0,  "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_2",  "type": "shelf", "x": 7.0,  "y": 15.0, "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_3",  "type": "shelf", "x": 10.0, "y": 8.0,  "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_4",  "type": "shelf", "x": 10.0, "y": 15.0, "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_5",  "type": "shelf", "x": 13.0, "y": 8.0,  "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_6",  "type": "shelf", "x": 13.0, "y": 15.0, "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_7",  "type": "shelf", "x": 16.0, "y": 8.0,  "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_8",  "type": "shelf", "x": 16.0, "y": 15.0, "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_9",  "type": "shelf", "x": 19.0, "y": 8.0,  "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_10", "type": "shelf", "x": 19.0, "y": 15.0, "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_11", "type": "shelf", "x": 22.0, "y": 8.0,  "width": 1.0, "height": 5.0 },
+		{ "id": "shelf_12", "type": "shelf", "x": 22.0, "y": 15.0, "width": 1.0, "height": 5.0 },
 
-		{ "id": "mur_entree", "type": "mur", "x": 8.1,  "y": 0.0, "largeur": 0.3, "hauteur": 5.0 },
-		{ "id": "mur_droite", "type": "mur", "x": 21.6, "y": 4.7, "largeur": 8.4, "hauteur": 0.3 },
+		{ "id": "entrance_wall", "type": "wall", "x": 8.1,  "y": 0.0, "width": 0.3, "height": 5.0 },
+		{ "id": "right_wall",    "type": "wall", "x": 21.6, "y": 4.7, "width": 8.4, "height": 0.3 },
 
-		{ "id": "allee_caisse_1", "type": "sens_unique", "sens": "bas", "x": 8.4,  "y": 3.0, "largeur": 1.2, "hauteur": 2.0 },
-		{ "id": "allee_caisse_2", "type": "sens_unique", "sens": "bas", "x": 10.4, "y": 3.0, "largeur": 1.2, "hauteur": 2.0 },
-		{ "id": "allee_caisse_3", "type": "sens_unique", "sens": "bas", "x": 12.4, "y": 3.0, "largeur": 1.2, "hauteur": 2.0 },
-		{ "id": "allee_caisse_4", "type": "sens_unique", "sens": "bas", "x": 14.4, "y": 3.0, "largeur": 1.2, "hauteur": 2.0 },
-		{ "id": "allee_caisse_5", "type": "sens_unique", "sens": "bas", "x": 16.4, "y": 3.0, "largeur": 1.2, "hauteur": 2.0 },
-		{ "id": "allee_caisse_6", "type": "sens_unique", "sens": "bas", "x": 18.4, "y": 3.0, "largeur": 1.2, "hauteur": 2.0 },
-		{ "id": "sans_achat",     "type": "sens_unique", "sens": "bas", "x": 20.4, "y": 3.0, "largeur": 1.2, "hauteur": 2.0 }
+		{ "id": "checkout_lane_1",  "type": "one_way", "direction": "down", "x": 8.4,  "y": 3.0, "width": 1.2, "height": 2.0 },
+		{ "id": "checkout_lane_2",  "type": "one_way", "direction": "down", "x": 10.4, "y": 3.0, "width": 1.2, "height": 2.0 },
+		{ "id": "checkout_lane_3",  "type": "one_way", "direction": "down", "x": 12.4, "y": 3.0, "width": 1.2, "height": 2.0 },
+		{ "id": "checkout_lane_4",  "type": "one_way", "direction": "down", "x": 14.4, "y": 3.0, "width": 1.2, "height": 2.0 },
+		{ "id": "checkout_lane_5",  "type": "one_way", "direction": "down", "x": 16.4, "y": 3.0, "width": 1.2, "height": 2.0 },
+		{ "id": "checkout_lane_6",  "type": "one_way", "direction": "down", "x": 18.4, "y": 3.0, "width": 1.2, "height": 2.0 },
+		{ "id": "no_purchase_lane", "type": "one_way", "direction": "down", "x": 20.4, "y": 3.0, "width": 1.2, "height": 2.0 }
 	],
 
-	"ressources": [
-		{ "id": "PQ",      "rayon": "rayon_2",  "x": 8.0,  "y": 17.5, "stock": 10 },
-		{ "id": "POKEMON", "rayon": "rayon_6",  "x": 14.0, "y": 17.5, "stock": 12 },
-		{ "id": "CLIM",    "rayon": "rayon_11", "x": 22.0, "y": 10.5, "stock": 20 }
+	"resources": [
+		{ "id": "TOILET_PAPER",    "shelf": "shelf_2",  "x": 8.0,  "y": 17.5, "stock": 10 },
+		{ "id": "POKEMON",         "shelf": "shelf_6",  "x": 14.0, "y": 17.5, "stock": 12 },
+		{ "id": "AIR_CONDITIONER", "shelf": "shelf_11", "x": 22.0, "y": 10.5, "stock": 20 }
 	],
 
 	"clients": [],
 
-	"flux_clients": {
-		"nombre": 300,
-		"intervalle": 1.5,
-		"produits": ["PQ", ["POKEMON", "CLIM"]]
+	"client_flow": {
+		"count": 300,
+		"interval": 1.5,
+		"products": ["TOILET_PAPER", ["POKEMON", "AIR_CONDITIONER"]]
 	}
 }

@@ -20,14 +20,14 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 │   └── reference.json           # Configuration de reference
 ├── simulation/
 │   ├── config.py                # Chargement / validation / duplication des configs JSON
-│   ├── geometrie.py             # Obstacles, plus court chemin, contraintes de non-penetration
+│   ├── geometry.py              # Obstacles, plus court chemin, contraintes de non-penetration
 │   ├── client.py                # Agent client (deplacement, prise, paiement)
 │   ├── model.py                 # Modele Mesa (magasin, clients, boucle de simulation)
 │   ├── visualization.py         # Figures du rapport (matplotlib)
-│   └── vue_web.py               # Dessin SVG du magasin pour le site
+│   └── web_view.py              # Dessin SVG du magasin pour le site
 ├── .vscode/settings.json        # Indentation par tabulations
 ├── app.py                       # Interface Mesa / Solara dans le navigateur
-├── serveur.py                   # Lance le site et le redemarre quand le code change
+├── server.py                    # Lance le site et le redemarre quand le code change
 ├── run.py                       # Export des figures, simulation sans interface
 └── requirements.txt
 ```
@@ -44,7 +44,7 @@ python -m venv .venv
 Interface de simulation (Mesa, dans le navigateur, avec Play / Pause / Step / Reset) :
 
 ```powershell
-.venv\Scripts\python serveur.py
+.venv\Scripts\python server.py
 ```
 
 Le site est sur http://localhost:8765 (`--port` pour en changer). Il redemarre tout seul
@@ -55,7 +55,7 @@ Simuler les clients jusqu'a leur sortie et exporter les figures du rapport (traj
 coloree par la vitesse, et vitesse en fonction du temps) :
 
 ```powershell
-.venv\Scripts\python run.py --simuler --sortie outputs/reference.png
+.venv\Scripts\python run.py --simulate --output outputs/reference.png
 ```
 
 Afficher la configuration de reference dans une fenetre interactive :
@@ -67,7 +67,7 @@ Afficher la configuration de reference dans une fenetre interactive :
 Afficher une autre configuration et exporter l'image au lieu d'ouvrir une fenetre :
 
 ```powershell
-.venv\Scripts\python run.py configs/ma_variante.json --sortie outputs/ma_variante.png
+.venv\Scripts\python run.py configs/my_variant.json --output outputs/my_variant.png
 ```
 
 ### Creer une variante de configuration
@@ -76,14 +76,17 @@ Afficher une autre configuration et exporter l'image au lieu d'ouvrir une fenetr
 from simulation.config import duplicate_config
 
 duplicate_config(
-    "configs/reference.json",
-    "configs/ressource_devant.json",
-    overrides={
-        "nom": "ressource_devant",
-        "ressources": [{"id": "produit_1", "x": 15.0, "y": 2.0, "stock": 50}],
-    },
+	"configs/reference.json",
+	"configs/fast_flow.json",
+	overrides={
+		"name": "fast_flow",
+		"client_flow": {"interval": 1.0},
+	},
 )
 ```
+
+Le code, les cles du JSON et les textes affiches sont en anglais ; la documentation reste
+en francais.
 
 ## Avancement
 
