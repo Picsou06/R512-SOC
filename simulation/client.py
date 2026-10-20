@@ -3,128 +3,128 @@ import math
 import numpy as np
 from mesa.experimental.continuous_space import ContinuousSpaceAgent
 
-DISTANCE_LIBERATION = 0.05
-POINT_ATTEINT = 0.15
+RELEASE_DISTANCE = 0.05
+WAYPOINT_REACHED = 0.15
 
-ETATS = {
-	"vers_produit": "Va au produit",
-	"prise": "Prend le produit",
-	"vers_caisse": "Va en caisse",
-	"paiement": "Paie",
-	"vers_sortie": "Sort",
-	"sorti": "Sorti",
+STATES = {
+	"to_product": "Going to product",
+	"picking": "Picking product",
+	"to_checkout": "Going to checkout",
+	"paying": "Paying",
+	"to_exit": "Leaving",
+	"exited": "Left",
 }
 
 
 class Client(ContinuousSpaceAgent):
 
-	def __init__(self, model, identifiant, depart, etapes):
+	def __init__(self, model, identifier, start, steps):
 		super().__init__(model.space, model)
-		self.identifiant = identifiant
-		self.position = np.array(depart, dtype=float)
-		self.cap = np.array([0.0, 1.0])
-		self.vitesse = 0.0
-		self.etapes = list(etapes)
-		self.etat = None
-		self.trajet = []
-		self.attente = 0.0
-		self.articles = 0
-		self.caisse = None
-		self.normale = None
-		self.cote = None
-		self.libere = True
-		self.nb_contacts = 0
-		self.trajectoire = [(model.temps, *self.position, 0.0)]
-		self.journal = [(model.temps, "entree")]
-		self._etape_suivante()
+		self.identifier = identifier
+		self.position = np.array(start, dtype=float)
+		self.heading = np.array([0.0, 1.0])
+		self.speed = 0.0
+		self.steps = list(steps)
+		self.state = None
+		self.route = []
+		self.wait = 0.0
+		self.items = 0
+		self.checkout = None
+		self.normal = None
+		self.side = None
+		self.released = True
+		self.contact_count = 0
+		self.trajectory = [(model.current_time, *self.position, 0.0)]
+		self.log = [(model.current_time, "entered")]
+		self._next_step()
 
 	@property
-	def en_contact(self):
-		return self.normale is not None
+	def in_contact(self):
+		return self.normal is not None
 
 	@property
-	def libelle(self):
-		return ETATS[self.etat]
+	def label(self):
+		return STATES[self.state]
 
-	def _etape_suivante(self):
-		if not self.etapes:
-			self.etat = "sorti"
-			self.journal.append((self.model.temps, "sorti"))
+	def _next_step(self):
+		if not self.steps:
+			self.state = "exited"
+			self.log.append((self.model.current_time, "exited"))
 			return
-		etape = self.etapes.pop(0)
-		if etape["etat"] == "prise" and not self.model.prendre(etape["produit"]):
-			self.journal.append((self.model.temps, "rupture"))
-			return self._etape_suivante()
-		if etape["etat"] == "prise":
-			self.articles += 1
-		if etape["etat"] == "vers_caisse":
-			if not self.articles:
-				self.etapes = [e for e in self.etapes if e["etat"] != "paiement"]
-				return self._etape_suivante()
-			self.caisse, trajet = self.model.choisir_caisse(self.position)
-			etape = {**etape, "trajet": trajet}
-		elif etape["etat"] == "paiement":
-			etape = {**etape, "duree": self.model.duree_paiement(self.articles)}
-		elif etape["etat"] == "vers_sortie":
-			etape = {**etape, "trajet": self.model.trajet_sortie(self.position)}
-		self.etat = etape["etat"]
-		self.journal.append((self.model.temps, self.etat))
-		if "trajet" in etape:
-			self.trajet = [np.array(point, dtype=float) for point in etape["trajet"]]
+		step = self.steps.pop(0)
+		if step["state"] == "picking" and not self.model.take(step["product"]):
+			self.log.append((self.model.current_time, "out_of_stock"))
+			return self._next_step()
+		if step["state"] == "picking":
+			self.items += 1
+		if step["state"] == "to_checkout":
+			if not self.items:
+				self.steps = [s for s in self.steps if s["state"] != "paying"]
+				return self._next_step()
+			self.checkout, route = self.model.choose_checkout(self.position)
+			step = {**step, "route": route}
+		elif step["state"] == "paying":
+			step = {**step, "duration": self.model.payment_duration(self.items)}
+		elif step["state"] == "to_exit":
+			step = {**step, "route": self.model.exit_route(self.position)}
+		self.state = step["state"]
+		self.log.append((self.model.current_time, self.state))
+		if "route" in step:
+			self.route = [np.array(point, dtype=float) for point in step["route"]]
 		else:
-			self.attente = etape["duree"]
+			self.wait = step["duration"]
 
 	def step(self):
-		dt = self.model.pas_de_temps
-		if self.etat == "sorti":
+		dt = self.model.time_step
+		if self.state == "exited":
 			return
-		if self.etat in ("prise", "paiement"):
-			self.attente -= dt
-			if self.attente <= 1e-9:
-				if self.etat == "paiement":
-					self.model.liberer_caisse(self.caisse)
-				self._etape_suivante()
-		elif self._avancer(dt):
-			self._etape_suivante()
-		self.trajectoire.append((self.model.temps + dt, *self.position, self.vitesse))
+		if self.state in ("picking", "paying"):
+			self.wait -= dt
+			if self.wait <= 1e-9:
+				if self.state == "paying":
+					self.model.release_checkout(self.checkout)
+				self._next_step()
+		elif self._move(dt):
+			self._next_step()
+		self.trajectory.append((self.model.current_time + dt, *self.position, self.speed))
 
-	def _avancer(self, dt):
-		c = self.model.comportement
+	def _move(self, dt):
+		b = self.model.behavior
 		obstacles = self.model.obstacles
-		cible = self.trajet[0]
-		distance = math.dist(self.position, cible)
-		if len(self.trajet) > 1 and distance <= POINT_ATTEINT:
-			self.trajet.pop(0)
+		target = self.route[0]
+		distance = math.dist(self.position, target)
+		if len(self.route) > 1 and distance <= WAYPOINT_REACHED:
+			self.route.pop(0)
 			return False
 		if distance <= 0.01:
-			self.position = obstacles.respecter_sens(self.position, cible)
-			self.vitesse = 0.0
+			self.position = obstacles.respect_direction(self.position, target)
+			self.speed = 0.0
 			return True
-		restant = distance + sum(math.dist(p, q) for p, q in zip(self.trajet, self.trajet[1:]))
+		remaining = distance + sum(math.dist(a, b) for a, b in zip(self.route, self.route[1:]))
 
-		vitesse_voulue = min(c["vitesse_max"], math.sqrt(2 * c["deceleration"] * restant), restant / dt)
-		if vitesse_voulue > self.vitesse:
-			self.vitesse = min(vitesse_voulue, self.vitesse + c["acceleration"] * dt)
+		wanted_speed = min(b["max_speed"], math.sqrt(2 * b["deceleration"] * remaining), remaining / dt)
+		if wanted_speed > self.speed:
+			self.speed = min(wanted_speed, self.speed + b["acceleration"] * dt)
 		else:
-			self.vitesse = max(vitesse_voulue, self.vitesse - c["deceleration"] * dt)
+			self.speed = max(wanted_speed, self.speed - b["deceleration"] * dt)
 
-		direction = (cible - self.position) / distance
-		if self.normale is not None and np.dot(direction, self.normale) < 0:
-			tangente = np.array([-self.normale[1], self.normale[0]])
-			if self.cote is None:
-				self.cote = 1.0 if np.dot(direction, tangente) >= 0 else -1.0
-			direction = self.cote * tangente
-		longueur_pas = self.vitesse * dt if len(self.trajet) > 1 else min(self.vitesse * dt, distance)
-		voulue = obstacles.respecter_sens(self.position, self.position + direction * longueur_pas)
-		nouvelle, self.normale = obstacles.repousser(voulue)
-		if self.normale is not None and self.libere:
-			self.nb_contacts += 1
-			self.libere = False
-		elif obstacles.distance(nouvelle) > DISTANCE_LIBERATION:
-			self.libere = True
-			self.cote = None
-		deplacement = nouvelle - self.position
-		if np.linalg.norm(deplacement) > 1e-9:
-			self.cap = deplacement / np.linalg.norm(deplacement)
-		self.position = nouvelle
+		direction = (target - self.position) / distance
+		if self.normal is not None and np.dot(direction, self.normal) < 0:
+			tangent = np.array([-self.normal[1], self.normal[0]])
+			if self.side is None:
+				self.side = 1.0 if np.dot(direction, tangent) >= 0 else -1.0
+			direction = self.side * tangent
+		step_length = self.speed * dt if len(self.route) > 1 else min(self.speed * dt, distance)
+		wanted = obstacles.respect_direction(self.position, self.position + direction * step_length)
+		new, self.normal = obstacles.push_out(wanted)
+		if self.normal is not None and self.released:
+			self.contact_count += 1
+			self.released = False
+		elif obstacles.distance(new) > RELEASE_DISTANCE:
+			self.released = True
+			self.side = None
+		move = new - self.position
+		if np.linalg.norm(move) > 1e-9:
+			self.heading = move / np.linalg.norm(move)
+		self.position = new
 		return False

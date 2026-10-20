@@ -4,188 +4,188 @@ import mesa
 from mesa.experimental.continuous_space import ContinuousSpace
 
 from simulation.client import Client
-from simulation.config import (SENS, TYPES_ENTREE, TYPES_SORTIE, load_config, obstacles_de,
-							   rectangle, sens_uniques)
-from simulation.geometrie import Obstacles
+from simulation.config import (DIRECTIONS, ENTRANCE_TYPES, EXIT_TYPES, load_config, obstacles_of,
+							   one_way_zones, rectangle)
+from simulation.geometry import Obstacles
 
-DECALAGE = 0.05
-JEU_PRODUIT = 0.4
-GRAINE = 1
+OFFSET = 0.05
+PRODUCT_SPREAD = 0.4
+SEED = 1
 
 
-class MagasinModel(mesa.Model):
-	def __init__(self, chemin_config="configs/reference.json", rng=GRAINE):
+class StoreModel(mesa.Model):
+	def __init__(self, config_path="configs/reference.json", rng=SEED):
 		super().__init__(rng=rng)
-		self.config = load_config(chemin_config)
-		self.comportement = self.config["comportement_client"]
-		self.parametres = self.config["parametres"]
-		self.pas_de_temps = self.parametres["pas_de_temps"]
-		self.temps = 0.0
+		self.config = load_config(config_path)
+		self.behavior = self.config["client_behavior"]
+		self.parameters = self.config["parameters"]
+		self.time_step = self.parameters["time_step"]
+		self.current_time = 0.0
 
-		largeur = self.config["magasin"]["largeur"]
-		hauteur = self.config["magasin"]["hauteur"]
-		self.space = ContinuousSpace([[0, largeur], [0, hauteur]], torus=False, random=self.random)
+		width = self.config["store"]["width"]
+		height = self.config["store"]["height"]
+		self.space = ContinuousSpace([[0, width], [0, height]], torus=False, random=self.random)
 
-		zones = [zone for _, zone in obstacles_de(self.config)]
-		sens = [(rectangle(z), SENS[z["sens"]]) for z in sens_uniques(self.config)]
-		self.obstacles = Obstacles(zones, largeur, hauteur, self.comportement["rayon"],
-								   self.parametres["rayon_boules"], sens)
+		zones = [zone for _, zone in obstacles_of(self.config)]
+		directions = [(rectangle(z), DIRECTIONS[z["direction"]]) for z in one_way_zones(self.config)]
+		self.obstacles = Obstacles(zones, width, height, self.behavior["radius"],
+								   self.parameters["ball_radius"], directions)
 
-		self.stocks = {r["id"]: r["stock"] for r in self.config["ressources"]}
-		self.charge = {c["id"]: 0 for c in self.config.get("caisses", []) if c["ouverte"]}
+		self.stocks = {r["id"]: r["stock"] for r in self.config["resources"]}
+		self.load = {c["id"]: 0 for c in self.config.get("checkouts", []) if c["open"]}
 		self.clients = []
-		self.en_attente = self._arrivees()
-		self.nb_clients_total = len(self.en_attente)
-		self._faire_entrer()
+		self.pending = self._arrivals()
+		self.total_clients = len(self.pending)
+		self._admit()
 
-	def _arrivees(self):
-		arrivees = [(d.get("arrivee", 0.0), d) for d in self.config["clients"]]
-		flux = self.config.get("flux_clients")
-		if flux:
-			entrees = flux.get("portes") or [p["nom"] for p in self.config["portes"]
-											 if p["type"] in TYPES_ENTREE]
-			pris = {d["id"] for d in self.config["clients"]}
-			numero = 0
-			for k in range(flux["nombre"]):
-				numero += 1
-				while f"client_{numero}" in pris:
-					numero += 1
-				description = {"id": f"client_{numero}", "porte": entrees[k % len(entrees)],
-							   "produits": list(flux["produits"])}
-				arrivees.append((flux.get("debut", 0.0) + k * flux["intervalle"], description))
-		arrivees.sort(key=lambda a: a[0])
-		return arrivees
+	def _arrivals(self):
+		arrivals = [(d.get("arrival", 0.0), d) for d in self.config["clients"]]
+		flow = self.config.get("client_flow")
+		if flow:
+			entrances = flow.get("doors") or [d["name"] for d in self.config["doors"]
+											  if d["type"] in ENTRANCE_TYPES]
+			taken = {d["id"] for d in self.config["clients"]}
+			number = 0
+			for k in range(flow["count"]):
+				number += 1
+				while f"client_{number}" in taken:
+					number += 1
+				description = {"id": f"client_{number}", "door": entrances[k % len(entrances)],
+							   "products": list(flow["products"])}
+				arrivals.append((flow.get("start", 0.0) + k * flow["interval"], description))
+		arrivals.sort(key=lambda a: a[0])
+		return arrivals
 
-	def _faire_entrer(self):
-		while self.en_attente and self.en_attente[0][0] <= self.temps + 1e-9:
-			_, description = self.en_attente.pop(0)
-			self.clients.append(self._creer_client(description))
+	def _admit(self):
+		while self.pending and self.pending[0][0] <= self.current_time + 1e-9:
+			_, description = self.pending.pop(0)
+			self.clients.append(self._create_client(description))
 
-	def _creer_client(self, description):
-		portes = {p["nom"]: p for p in self.config["portes"]}
-		ressources = {r["id"]: r for r in self.config["ressources"]}
-		rayons = {m["id"]: m for m in self.config["murs"] if m["type"] == "rayon"}
+	def _create_client(self, description):
+		doors = {d["name"]: d for d in self.config["doors"]}
+		resources = {r["id"]: r for r in self.config["resources"]}
+		shelves = {w["id"]: w for w in self.config["walls"] if w["type"] == "shelf"}
 
-		depart = self._point_porte(portes[description["porte"]], aleatoire=True)
-		etapes = []
-		for id_produit in self._tirer_produits(description["produits"]):
-			ressource = ressources[id_produit]
-			point = self._point_produit(ressource, rayons[ressource["rayon"]])
-			etapes.append({"etat": "vers_produit", "trajet": [point]})
-			etapes.append({"etat": "prise", "duree": self.comportement["temps_prise"],
-						   "produit": id_produit})
-		etapes.append({"etat": "vers_caisse"})
-		etapes.append({"etat": "paiement"})
-		etapes.append({"etat": "vers_sortie"})
-		return Client(self, description["id"], depart, etapes)
+		start = self._door_point(doors[description["door"]], random_offset=True)
+		steps = []
+		for product_id in self._draw_products(description["products"]):
+			resource = resources[product_id]
+			point = self._product_point(resource, shelves[resource["shelf"]])
+			steps.append({"state": "to_product", "route": [point]})
+			steps.append({"state": "picking", "duration": self.behavior["pick_time"],
+						  "product": product_id})
+		steps.append({"state": "to_checkout"})
+		steps.append({"state": "paying"})
+		steps.append({"state": "to_exit"})
+		return Client(self, description["id"], start, steps)
 
-	def _tirer_produits(self, produits):
-		return [self.random.choice(p) if isinstance(p, list) else p for p in produits]
+	def _draw_products(self, products):
+		return [self.random.choice(p) if isinstance(p, list) else p for p in products]
 
-	def prendre(self, id_produit):
-		if self.stocks[id_produit] <= 0:
+	def take(self, product_id):
+		if self.stocks[product_id] <= 0:
 			return False
-		self.stocks[id_produit] -= 1
+		self.stocks[product_id] -= 1
 		return True
 
-	def duree_paiement(self, articles):
-		return self.parametres["temps_paiement_fixe"] + self.parametres["temps_par_article"] * articles
+	def payment_duration(self, items):
+		return self.parameters["payment_base_time"] + self.parameters["payment_time_per_item"] * items
 
-	def _point_porte(self, porte, aleatoire=False):
-		d = self.comportement["rayon"] + DECALAGE
-		largeur = self.config["magasin"]["largeur"]
-		hauteur = self.config["magasin"]["hauteur"]
-		milieu = porte["largeur"] / 2
-		if aleatoire:
-			jeu = max(0.0, milieu - self.comportement["rayon"] - 0.1)
-			milieu += self.random.uniform(-jeu, jeu)
+	def _door_point(self, door, random_offset=False):
+		d = self.behavior["radius"] + OFFSET
+		width = self.config["store"]["width"]
+		height = self.config["store"]["height"]
+		middle = door["width"] / 2
+		if random_offset:
+			spread = max(0.0, middle - self.behavior["radius"] - 0.1)
+			middle += self.random.uniform(-spread, spread)
 		return {
-			"bas": (porte["x"] + milieu, d),
-			"haut": (porte["x"] + milieu, hauteur - d),
-			"gauche": (d, porte["y"] + milieu),
-			"droite": (largeur - d, porte["y"] + milieu),
-		}[porte["mur"]]
+			"bottom": (door["x"] + middle, d),
+			"top": (door["x"] + middle, height - d),
+			"left": (d, door["y"] + middle),
+			"right": (width - d, door["y"] + middle),
+		}[door["wall"]]
 
-	def _point_produit(self, ressource, rayon):
-		x, y = ressource["x"], ressource["y"]
-		d = self.comportement["rayon"] + self.obstacles.epaisseur + DECALAGE
-		jeu = JEU_PRODUIT
-		if abs(x - rayon["x"]) < 1e-9 or abs(x - (rayon["x"] + rayon["largeur"])) < 1e-9:
-			y = min(max(y + self.random.uniform(-jeu, jeu), rayon["y"]), rayon["y"] + rayon["hauteur"])
-			return (x - d, y) if abs(x - rayon["x"]) < 1e-9 else (x + d, y)
-		x = min(max(x + self.random.uniform(-jeu, jeu), rayon["x"]), rayon["x"] + rayon["largeur"])
-		return (x, y - d) if abs(y - rayon["y"]) < 1e-9 else (x, y + d)
+	def _product_point(self, resource, shelf):
+		x, y = resource["x"], resource["y"]
+		d = self.behavior["radius"] + self.obstacles.thickness + OFFSET
+		spread = PRODUCT_SPREAD
+		if abs(x - shelf["x"]) < 1e-9 or abs(x - (shelf["x"] + shelf["width"])) < 1e-9:
+			y = min(max(y + self.random.uniform(-spread, spread), shelf["y"]), shelf["y"] + shelf["height"])
+			return (x - d, y) if abs(x - shelf["x"]) < 1e-9 else (x + d, y)
+		x = min(max(x + self.random.uniform(-spread, spread), shelf["x"]), shelf["x"] + shelf["width"])
+		return (x, y - d) if abs(y - shelf["y"]) < 1e-9 else (x, y + d)
 
-	def _point_caisse(self, caisse):
-		return (caisse["x"] - self.parametres["distance_caisse"],
-				caisse["y"] + caisse["hauteur"] / 2)
+	def _checkout_point(self, checkout):
+		return (checkout["x"] - self.parameters["checkout_distance"],
+				checkout["y"] + checkout["height"] / 2)
 
-	def _sorties(self):
-		return [p for p in self.config["portes"] if p["type"] in TYPES_SORTIE]
+	def _exits(self):
+		return [d for d in self.config["doors"] if d["type"] in EXIT_TYPES]
 
-	def choisir_caisse(self, depart):
-		penalite = self.duree_paiement(1) * self.comportement["vitesse_max"]
-		meilleur = None
-		for caisse in self.config.get("caisses", []):
-			if not caisse["ouverte"]:
+	def choose_checkout(self, start):
+		penalty = self.payment_duration(1) * self.behavior["max_speed"]
+		best = None
+		for checkout in self.config.get("checkouts", []):
+			if not checkout["open"]:
 				continue
-			point = self._point_caisse(caisse)
-			aller = math.dist(depart, point)
-			for porte in self._sorties():
-				retour = math.dist(point, self._point_porte(porte))
-				cout = aller + retour + penalite * self.charge[caisse["id"]]
-				if meilleur is None or cout < meilleur[0]:
-					meilleur = (cout, caisse["id"], point)
-		if meilleur is None:
-			raise ValueError("aucune caisse ouverte")
-		_, id_caisse, point = meilleur
-		self.charge[id_caisse] += 1
-		allee = self._allee_en(point)
-		return id_caisse, (self._trajet_allee(allee)[:1] if allee else []) + [point]
+			point = self._checkout_point(checkout)
+			there = math.dist(start, point)
+			for door in self._exits():
+				back = math.dist(point, self._door_point(door))
+				cost = there + back + penalty * self.load[checkout["id"]]
+				if best is None or cost < best[0]:
+					best = (cost, checkout["id"], point)
+		if best is None:
+			raise ValueError("no open checkout")
+		_, checkout_id, point = best
+		self.load[checkout_id] += 1
+		lane = self._lane_at(point)
+		return checkout_id, (self._lane_route(lane)[:1] if lane else []) + [point]
 
-	def liberer_caisse(self, id_caisse):
-		self.charge[id_caisse] -= 1
+	def release_checkout(self, checkout_id):
+		self.load[checkout_id] -= 1
 
-	def trajet_sortie(self, depart):
-		porte = min(self._sorties(), key=lambda p: math.dist(depart, self._point_porte(p)))
-		point_porte = self._point_porte(porte, aleatoire=True)
-		allees = sens_uniques(self.config)
-		if not allees or self._allee_en(depart):
-			return [point_porte]
-		allee = min(allees, key=lambda z: math.dist(depart, self._trajet_allee(z)[0])
-					+ math.dist(self._trajet_allee(z)[1], point_porte))
-		return self._trajet_allee(allee) + [point_porte]
+	def exit_route(self, start):
+		door = min(self._exits(), key=lambda d: math.dist(start, self._door_point(d)))
+		door_point = self._door_point(door, random_offset=True)
+		lanes = one_way_zones(self.config)
+		if not lanes or self._lane_at(start):
+			return [door_point]
+		lane = min(lanes, key=lambda z: math.dist(start, self._lane_route(z)[0])
+				   + math.dist(self._lane_route(z)[1], door_point))
+		return self._lane_route(lane) + [door_point]
 
-	def _allee_en(self, point):
-		for zone in sens_uniques(self.config):
+	def _lane_at(self, point):
+		for zone in one_way_zones(self.config):
 			x0, y0, x1, y1 = rectangle(zone)
 			if x0 <= point[0] <= x1 and y0 <= point[1] <= y1:
 				return zone
 		return None
 
-	def _trajet_allee(self, zone):
-		sx, sy = SENS[zone["sens"]]
-		centre = (zone["x"] + zone["largeur"] / 2, zone["y"] + zone["hauteur"] / 2)
-		portee = abs(sx) * zone["largeur"] / 2 + abs(sy) * zone["hauteur"] / 2 + self.comportement["rayon"] + DECALAGE
-		return [(centre[0] - sx * portee, centre[1] - sy * portee), centre]
+	def _lane_route(self, zone):
+		sx, sy = DIRECTIONS[zone["direction"]]
+		center = (zone["x"] + zone["width"] / 2, zone["y"] + zone["height"] / 2)
+		reach = abs(sx) * zone["width"] / 2 + abs(sy) * zone["height"] / 2 + self.behavior["radius"] + OFFSET
+		return [(center[0] - sx * reach, center[1] - sy * reach), center]
 
 	@property
-	def clients_presents(self):
-		return [c for c in self.clients if c.etat != "sorti"]
+	def present_clients(self):
+		return [c for c in self.clients if c.state != "exited"]
 
 	@property
-	def clients_sortis(self):
-		return [c for c in self.clients if c.etat == "sorti"]
+	def exited_clients(self):
+		return [c for c in self.clients if c.state == "exited"]
 
 	def step(self):
-		for client in self.clients_presents:
+		for client in self.present_clients:
 			client.step()
-		self.temps = round(self.temps + self.pas_de_temps, 10)
-		self._faire_entrer()
-		if not self.en_attente and not self.clients_presents:
+		self.current_time = round(self.current_time + self.time_step, 10)
+		self._admit()
+		if not self.pending and not self.present_clients:
 			self.running = False
 
-	def simuler(self, duree_max=3600.0):
-		while self.running and self.temps < duree_max:
+	def simulate(self, max_duration=3600.0):
+		while self.running and self.current_time < max_duration:
 			self.step()
 		return self
