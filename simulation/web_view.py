@@ -1,16 +1,14 @@
 import math
 from html import escape
 
-from simulation.client import STATES
 from simulation.config import DIRECTIONS, door_interval
 from simulation.visualization import (
-	CHECKOUT_BELT, CHECKOUT_CLOSED, CHECKOUT_OPEN, DOOR_COLORS, DOOR_LABELS, FLOOR, GLASS_EDGE,
+	CHECKOUT_BELT, CHECKOUT_CLOSED, CHECKOUT_OPEN, DOOR_COLORS, FLOOR, GLASS_EDGE,
 	ONE_WAY, ONE_WAY_ARROW, RESOURCE, RESOURCE_EDGE, SHELF, SHELF_EDGE, SHELF_LINE, STATE_COLORS,
 	TEXT, TILE, WALL, _solid_segments,
 )
 
 MARGIN = 1.5
-BOTTOM_MARGIN = 3.0
 
 
 class Frame:
@@ -19,7 +17,7 @@ class Frame:
 		self.width = config["store"]["width"]
 		self.height = config["store"]["height"]
 		self.view_width = self.width + 2 * MARGIN
-		self.view_height = self.height + MARGIN + BOTTOM_MARGIN
+		self.view_height = self.height + 2 * MARGIN
 
 	def x(self, x):
 		return round(x + MARGIN, 3)
@@ -101,23 +99,11 @@ def store_svg(config, stocks=None):
 		parts.append(_line(f, *a, *b, "white", 0.07, dashes="0.2 0.2"))
 		for bx, by in (a, b):
 			parts.append(f'<circle cx="{f.x(bx)}" cy="{f.y(by)}" r="0.12" fill="{GLASS_EDGE}"/>')
-		middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-		offset = {"bottom": (0, -1.0), "top": (0, 1.0), "left": (-1.0, 0), "right": (1.0, 0)}
-		ex, ey = offset[door["wall"]]
-		parts.append(_text(f, middle[0] + ex, middle[1] + ey,
-						   door.get("name", "").replace("_", " "), 0.42, color="currentColor"))
 
 	shelves = {z["id"]: z for z in config["walls"] if z["type"] == "shelf"}
 	for resource in config["resources"]:
 		stock = resource["stock"] if stocks is None else stocks[resource["id"]]
 		parts.append(_resource_svg(f, resource, shelves[resource["shelf"]], stock))
-
-	x0 = w - 5
-	y0 = -1.9
-	parts.append(_line(f, x0, y0, w, y0, "currentColor", 0.08))
-	for xx in (x0, w):
-		parts.append(_line(f, xx, y0 - 0.2, xx, y0 + 0.2, "currentColor", 0.06))
-	parts.append(_text(f, x0 + 2.5, y0 + 0.5, "5 m", 0.42, color="currentColor"))
 
 	return "".join(parts)
 
@@ -141,32 +127,6 @@ def collision_boxes_svg(obstacles, frame):
 	return "".join(f'<circle cx="{frame.x(cx)}" cy="{frame.y(cy)}" '
 				   f'r="{obstacles.ball_radius}" {style}/>'
 				   for cx, cy in obstacles.balls)
-
-
-def legend(config):
-	items = [("Shelf", f"background:{SHELF};border:1px solid {SHELF_EDGE}")]
-	types = {z["type"] for z in config["walls"]}
-	if "wall" in types:
-		items.append(("Wall", f"background:{WALL}"))
-	if "one_way" in types:
-		items.append(("One way", f"background:{ONE_WAY};border:1px solid {ONE_WAY_ARROW}"))
-	checkouts = config.get("checkouts", [])
-	if any(c["open"] for c in checkouts):
-		items.append(("Open checkout", f"background:{CHECKOUT_OPEN}"))
-	if any(not c["open"] for c in checkouts):
-		items.append(("Closed checkout", f"background:{CHECKOUT_CLOSED}"))
-	for door_type in DOOR_COLORS:
-		if any(d["type"] == door_type for d in config["doors"]):
-			items.append((DOOR_LABELS[door_type], f"background:{DOOR_COLORS[door_type]};height:5px"))
-	items.append(("Resource", f"background:{RESOURCE};border-radius:50%"))
-	for state, color in STATE_COLORS.items():
-		items.append((f"Client: {STATES[state].lower()}", f"background:{color};border-radius:50%"))
-	return "".join(
-		f'<span style="display:inline-flex;align-items:center;margin:0 10px 6px 0;'
-		f'font-size:13px"><span style="display:inline-block;width:14px;height:12px;'
-		f'margin-right:6px;{style}"></span>{escape(name)}</span>'
-		for name, style in items
-	)
 
 
 def _one_way_svg(f, zone):
