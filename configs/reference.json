@@ -19,6 +19,7 @@
 		"max_speed": 2.0,
 		"acceleration": 1.0,
 		"deceleration": 2.0,
+		"lateral_acceleration": 2.0,
 		"pick_time": 3.0
 	},
 

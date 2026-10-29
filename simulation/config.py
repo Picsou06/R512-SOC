@@ -8,7 +8,8 @@ ENTRANCE_TYPES = ("entrance", "entrance_exit")
 EXIT_TYPES = ("exit", "entrance_exit")
 WALL_TYPES = ("shelf", "wall", "one_way")
 DIRECTIONS = {"down": (0.0, -1.0), "up": (0.0, 1.0), "left": (-1.0, 0.0), "right": (1.0, 0.0)}
-BEHAVIOR = ("radius", "max_speed", "acceleration", "deceleration", "pick_time")
+BEHAVIOR = ("radius", "max_speed", "acceleration", "deceleration", "lateral_acceleration",
+			"pick_time")
 PARAMETERS = ("time_step", "ball_radius", "checkout_distance", "payment_base_time",
 			  "payment_time_per_item")
 
