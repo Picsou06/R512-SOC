@@ -1,26 +1,26 @@
-import math
-
 import mesa
 from mesa.experimental.continuous_space import ContinuousSpace
 
 from simulation.client import Client
 from simulation.config import (DIRECTIONS, ENTRANCE_TYPES, EXIT_TYPES, load_config, obstacles_of,
 							   one_way_zones, rectangle)
-from simulation.geometry import Obstacles
+from simulation.geometry import DistanceField, Obstacles
 
 OFFSET = 0.05
 PRODUCT_SPREAD = 0.4
+GOAL_SAMPLING = 0.1
 SEED = 1
 
 
 class StoreModel(mesa.Model):
-	def __init__(self, config_path="configs/reference.json", rng=SEED):
+	def __init__(self, config_path="configs/reference.json", rng=SEED, max_clients=None):
 		super().__init__(rng=rng)
 		self.config = load_config(config_path)
 		self.behavior = self.config["client_behavior"]
 		self.parameters = self.config["parameters"]
 		self.time_step = self.parameters["time_step"]
 		self.current_time = 0.0
+		self.max_clients = max_clients
 
 		width = self.config["store"]["width"]
 		height = self.config["store"]["height"]
@@ -33,6 +33,7 @@ class StoreModel(mesa.Model):
 
 		self.stocks = {r["id"]: r["stock"] for r in self.config["resources"]}
 		self.load = {c["id"]: 0 for c in self.config.get("checkouts", []) if c["open"]}
+		self.fields = {}
 		self.clients = []
 		self.pending = self._arrivals()
 		self.total_clients = len(self.pending)
@@ -54,7 +55,7 @@ class StoreModel(mesa.Model):
 							   "products": list(flow["products"])}
 				arrivals.append((flow.get("start", 0.0) + k * flow["interval"], description))
 		arrivals.sort(key=lambda a: a[0])
-		return arrivals
+		return arrivals[:self.max_clients]
 
 	def _admit(self):
 		while self.pending and self.pending[0][0] <= self.current_time + 1e-9:
@@ -66,12 +67,13 @@ class StoreModel(mesa.Model):
 		resources = {r["id"]: r for r in self.config["resources"]}
 		shelves = {w["id"]: w for w in self.config["walls"] if w["type"] == "shelf"}
 
-		start = self._door_point(doors[description["door"]], random_offset=True)
+		start = self._door_point(doors[description["door"]])
 		steps = []
 		for product_id in self._draw_products(description["products"]):
 			resource = resources[product_id]
-			point = self._product_point(resource, shelves[resource["shelf"]])
-			steps.append({"state": "to_product", "route": [point]})
+			field = self._field(("product", product_id),
+								lambda: self._product_goal(resource, shelves[resource["shelf"]]))
+			steps.append({"state": "to_product", "field": field})
 			steps.append({"state": "picking", "duration": self.behavior["pick_time"],
 						  "product": product_id})
 		steps.append({"state": "to_checkout"})
@@ -91,30 +93,46 @@ class StoreModel(mesa.Model):
 	def payment_duration(self, items):
 		return self.parameters["payment_base_time"] + self.parameters["payment_time_per_item"] * items
 
-	def _door_point(self, door, random_offset=False):
+	def _field(self, key, goal):
+		"""Carte des distances a un objectif, calculee une seule fois et partagee par les clients."""
+		if key not in self.fields:
+			self.fields[key] = DistanceField(self.obstacles, goal())
+		return self.fields[key]
+
+	def _segment(self, a, b):
+		n = max(1, round(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 / GOAL_SAMPLING))
+		return [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(n + 1)]
+
+	def _door_goal(self, door):
 		d = self.behavior["radius"] + OFFSET
 		width = self.config["store"]["width"]
 		height = self.config["store"]["height"]
-		middle = door["width"] / 2
-		if random_offset:
-			spread = max(0.0, middle - self.behavior["radius"] - 0.1)
-			middle += self.random.uniform(-spread, spread)
+		margin = min(self.behavior["radius"] + 0.1, door["width"] / 2)
+		start, end = margin, door["width"] - margin
 		return {
-			"bottom": (door["x"] + middle, d),
-			"top": (door["x"] + middle, height - d),
-			"left": (d, door["y"] + middle),
-			"right": (width - d, door["y"] + middle),
+			"bottom": self._segment((door["x"] + start, d), (door["x"] + end, d)),
+			"top": self._segment((door["x"] + start, height - d), (door["x"] + end, height - d)),
+			"left": self._segment((d, door["y"] + start), (d, door["y"] + end)),
+			"right": self._segment((width - d, door["y"] + start), (width - d, door["y"] + end)),
 		}[door["wall"]]
 
-	def _product_point(self, resource, shelf):
+	def _door_point(self, door):
+		goal = self._door_goal(door)
+		return goal[self.random.randrange(len(goal))]
+
+	def _product_goal(self, resource, shelf):
+		"""Bord de l'etagere devant le produit, sur PRODUCT_SPREAD de chaque cote."""
 		x, y = resource["x"], resource["y"]
 		d = self.behavior["radius"] + self.obstacles.thickness + OFFSET
-		spread = PRODUCT_SPREAD
 		if abs(x - shelf["x"]) < 1e-9 or abs(x - (shelf["x"] + shelf["width"])) < 1e-9:
-			y = min(max(y + self.random.uniform(-spread, spread), shelf["y"]), shelf["y"] + shelf["height"])
-			return (x - d, y) if abs(x - shelf["x"]) < 1e-9 else (x + d, y)
-		x = min(max(x + self.random.uniform(-spread, spread), shelf["x"]), shelf["x"] + shelf["width"])
-		return (x, y - d) if abs(y - shelf["y"]) < 1e-9 else (x, y + d)
+			x = x - d if abs(x - shelf["x"]) < 1e-9 else x + d
+			low = max(y - PRODUCT_SPREAD, shelf["y"])
+			high = min(y + PRODUCT_SPREAD, shelf["y"] + shelf["height"])
+			return self._segment((x, low), (x, high))
+		y = y - d if abs(y - shelf["y"]) < 1e-9 else y + d
+		low = max(x - PRODUCT_SPREAD, shelf["x"])
+		high = min(x + PRODUCT_SPREAD, shelf["x"] + shelf["width"])
+		return self._segment((low, y), (high, y))
 
 	def _checkout_point(self, checkout):
 		return (checkout["x"] - self.parameters["checkout_distance"],
@@ -123,51 +141,37 @@ class StoreModel(mesa.Model):
 	def _exits(self):
 		return [d for d in self.config["doors"] if d["type"] in EXIT_TYPES]
 
+	def _checkout_field(self, checkout):
+		"""Ligne qui traverse l'allee devant la caisse : le client s'arrete en la franchissant,
+		meme s'il arrive un peu de cote (il ne pourrait pas remonter une allee a sens unique)."""
+		x, y = self._checkout_point(checkout)
+		start = (x - self.parameters["checkout_distance"], y)
+		return self._field(("checkout", checkout["id"]),
+						   lambda: self._segment(start, (checkout["x"], y)))
+
+	def exit_field(self):
+		return self._field(("exit",), lambda: [p for door in self._exits() for p in self._door_goal(door)])
+
 	def choose_checkout(self, start):
 		penalty = self.payment_duration(1) * self.behavior["max_speed"]
 		best = None
 		for checkout in self.config.get("checkouts", []):
 			if not checkout["open"]:
 				continue
-			point = self._checkout_point(checkout)
-			there = math.dist(start, point)
-			for door in self._exits():
-				back = math.dist(point, self._door_point(door))
-				cost = there + back + penalty * self.load[checkout["id"]]
-				if best is None or cost < best[0]:
-					best = (cost, checkout["id"], point)
+			field = self._checkout_field(checkout)
+			there = field.value(start)
+			back = self.exit_field().value(self._checkout_point(checkout))
+			cost = there + back + penalty * self.load[checkout["id"]]
+			if best is None or cost < best[0]:
+				best = (cost, checkout["id"], field)
 		if best is None:
 			raise ValueError("no open checkout")
-		_, checkout_id, point = best
+		_, checkout_id, field = best
 		self.load[checkout_id] += 1
-		lane = self._lane_at(point)
-		return checkout_id, (self._lane_route(lane)[:1] if lane else []) + [point]
+		return checkout_id, field
 
 	def release_checkout(self, checkout_id):
 		self.load[checkout_id] -= 1
-
-	def exit_route(self, start):
-		door = min(self._exits(), key=lambda d: math.dist(start, self._door_point(d)))
-		door_point = self._door_point(door, random_offset=True)
-		lanes = one_way_zones(self.config)
-		if not lanes or self._lane_at(start):
-			return [door_point]
-		lane = min(lanes, key=lambda z: math.dist(start, self._lane_route(z)[0])
-				   + math.dist(self._lane_route(z)[1], door_point))
-		return self._lane_route(lane) + [door_point]
-
-	def _lane_at(self, point):
-		for zone in one_way_zones(self.config):
-			x0, y0, x1, y1 = rectangle(zone)
-			if x0 <= point[0] <= x1 and y0 <= point[1] <= y1:
-				return zone
-		return None
-
-	def _lane_route(self, zone):
-		sx, sy = DIRECTIONS[zone["direction"]]
-		center = (zone["x"] + zone["width"] / 2, zone["y"] + zone["height"] / 2)
-		reach = abs(sx) * zone["width"] / 2 + abs(sy) * zone["height"] / 2 + self.behavior["radius"] + OFFSET
-		return [(center[0] - sx * reach, center[1] - sy * reach), center]
 
 	@property
 	def present_clients(self):
