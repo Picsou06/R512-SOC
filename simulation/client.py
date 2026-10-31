@@ -4,7 +4,8 @@ import numpy as np
 from mesa.experimental.continuous_space import ContinuousSpaceAgent
 
 RELEASE_DISTANCE = 0.05
-WAYPOINT_REACHED = 0.15
+ARRIVAL_DISTANCE = 0.1
+MIN_TURN_SPEED = 0.3
 
 STATES = {
 	"to_product": "Going to product",
@@ -26,12 +27,11 @@ class Client(ContinuousSpaceAgent):
 		self.speed = 0.0
 		self.steps = list(steps)
 		self.state = None
-		self.route = []
+		self.field = None
 		self.wait = 0.0
 		self.items = 0
 		self.checkout = None
 		self.normal = None
-		self.side = None
 		self.released = True
 		self.contact_count = 0
 		self.trajectory = [(model.current_time, *self.position, 0.0)]
@@ -61,16 +61,16 @@ class Client(ContinuousSpaceAgent):
 			if not self.items:
 				self.steps = [s for s in self.steps if s["state"] != "paying"]
 				return self._next_step()
-			self.checkout, route = self.model.choose_checkout(self.position)
-			step = {**step, "route": route}
+			self.checkout, field = self.model.choose_checkout(self.position)
+			step = {**step, "field": field}
 		elif step["state"] == "paying":
 			step = {**step, "duration": self.model.payment_duration(self.items)}
 		elif step["state"] == "to_exit":
-			step = {**step, "route": self.model.exit_route(self.position)}
+			step = {**step, "field": self.model.exit_field()}
 		self.state = step["state"]
 		self.log.append((self.model.current_time, self.state))
-		if "route" in step:
-			self.route = [np.array(point, dtype=float) for point in step["route"]]
+		if "field" in step:
+			self.field = step["field"]
 		else:
 			self.wait = step["duration"]
 
@@ -91,40 +91,44 @@ class Client(ContinuousSpaceAgent):
 	def _move(self, dt):
 		b = self.model.behavior
 		obstacles = self.model.obstacles
-		target = self.route[0]
-		distance = math.dist(self.position, target)
-		if len(self.route) > 1 and distance <= WAYPOINT_REACHED:
-			self.route.pop(0)
-			return False
-		if distance <= 0.01:
-			self.position = obstacles.respect_direction(self.position, target)
+		remaining = self.field.value(self.position)
+		if remaining <= ARRIVAL_DISTANCE:
 			self.speed = 0.0
 			return True
-		remaining = distance + sum(math.dist(a, b) for a, b in zip(self.route, self.route[1:]))
 
+		# 1-3. direction voulue -grad(d), cap tourne au plus de a_lat / v * dt
+		wanted = self.field.direction(self.position)
+		gap = 0.0 if wanted is None else _signed_angle(self.heading, wanted)
+		max_turn = b["lateral_acceleration"] / max(self.speed, MIN_TURN_SPEED) * dt
+		self.heading = _rotate(self.heading, max(-max_turn, min(max_turn, gap)))
+
+		# 4. vitesse : freinage avant la cible, ralentissement si le cap est mal aligne
 		wanted_speed = min(b["max_speed"], math.sqrt(2 * b["deceleration"] * remaining), remaining / dt)
+		wanted_speed *= max(0.0, math.cos(gap))
 		if wanted_speed > self.speed:
 			self.speed = min(wanted_speed, self.speed + b["acceleration"] * dt)
 		else:
 			self.speed = max(wanted_speed, self.speed - b["deceleration"] * dt)
 
-		direction = (target - self.position) / distance
-		if self.normal is not None and np.dot(direction, self.normal) < 0:
-			tangent = np.array([-self.normal[1], self.normal[0]])
-			if self.side is None:
-				self.side = 1.0 if np.dot(direction, tangent) >= 0 else -1.0
-			direction = self.side * tangent
-		step_length = self.speed * dt if len(self.route) > 1 else min(self.speed * dt, distance)
-		wanted = obstacles.respect_direction(self.position, self.position + direction * step_length)
-		new, self.normal = obstacles.push_out(wanted)
-		if self.normal is not None and self.released:
-			self.contact_count += 1
-			self.released = False
+		# 5-6. deplacement suivant le cap, puis on repousse hors des boules
+		wanted_position = obstacles.respect_direction(self.position,
+													  self.position + self.heading * self.speed * dt)
+		new, self.normal = obstacles.push_out(wanted_position)
+		if self.normal is not None:
+			self.speed = min(self.speed, float(np.linalg.norm(new - self.position)) / dt)
+			if self.released:
+				self.contact_count += 1
+				self.released = False
 		elif obstacles.distance(new) > RELEASE_DISTANCE:
 			self.released = True
-			self.side = None
-		move = new - self.position
-		if np.linalg.norm(move) > 1e-9:
-			self.heading = move / np.linalg.norm(move)
 		self.position = new
 		return False
+
+
+def _signed_angle(u, v):
+	return math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1])
+
+
+def _rotate(u, angle):
+	c, s = math.cos(angle), math.sin(angle)
+	return np.array([c * u[0] - s * u[1], s * u[0] + c * u[1]])
