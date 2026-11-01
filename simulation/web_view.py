@@ -1,6 +1,8 @@
 import math
 from html import escape
 
+import numpy as np
+
 from simulation.config import DIRECTIONS, door_interval
 from simulation.visualization import (
 	CHECKOUT_BELT, CHECKOUT_CLOSED, CHECKOUT_OPEN, DOOR_COLORS, FLOOR, GLASS_EDGE,
@@ -9,6 +11,8 @@ from simulation.visualization import (
 )
 
 MARGIN = 1.5
+DISTANCE_WINDOW = 6.0
+WANTED_ARROW = "#00b8d4"
 
 
 class Frame:
@@ -118,6 +122,76 @@ def trajectories_svg(model, frame):
 		color = STATE_COLORS.get(client.state, "#888888")
 		parts.append(f'<path d="{trace}" fill="none" stroke="{color}" stroke-width="0.1" '
 					 f'stroke-opacity="0.7" stroke-linejoin="round" stroke-dasharray="0.25 0.15"/>')
+	return "".join(parts)
+
+
+def distance_window(frame, point):
+	"""Fenetre de DISTANCE_WINDOW m de large centree sur le point, dans le repere de l'image."""
+	width = DISTANCE_WINDOW
+	height = width * frame.view_height / frame.view_width
+	x = min(max(frame.x(point[0]) - width / 2, 0), frame.view_width - width)
+	y = min(max(frame.y(point[1]) - height / 2, 0), frame.view_height - height)
+	return x, y, width, height
+
+
+def distance_map_svg(field, frame, window):
+	"""Cases de la carte des distances visibles dans la fenetre, avec leur valeur en metres."""
+	wx, wy, ww, wh = window
+	h = field.step
+	ny, nx = field.d.shape
+	# fenetre en metres du magasin (l'axe y de l'image est inverse)
+	x0, x1 = wx - MARGIN, wx + ww - MARGIN
+	y0, y1 = frame.height + MARGIN - wy - wh, frame.height + MARGIN - wy
+	rows = range(max(0, int(y0 / h)), min(ny, int(y1 / h) + 1))
+	columns = range(max(0, int(x0 / h)), min(nx, int(x1 / h) + 1))
+	visible = field.d[rows.start:rows.stop, columns.start:columns.stop]
+	finite = visible[np.isfinite(visible)]
+	low, high = (float(finite.min()), float(finite.max())) if finite.size else (0.0, 1.0)
+	parts = []
+	for i in rows:
+		for j in columns:
+			x, y = frame.x(j * h), frame.y((i + 1) * h)
+			if not field.free[i, j]:
+				parts.append(f'<rect x="{x}" y="{y}" width="{h}" height="{h}" fill="#37474f" '
+							 f'opacity="0.35"/>')
+				continue
+			value = field.d[i, j]
+			if math.isinf(value):
+				fill, label = "#9e9e9e", "∞"
+			else:
+				t = (value - low) / max(high - low, 1e-9)
+				fill, label = f"hsl({120 + 120 * t:.0f}, 70%, 55%)", f"{value:.1f}"
+			parts.append(f'<rect x="{x}" y="{y}" width="{h}" height="{h}" fill="{fill}" '
+						 f'fill-opacity="0.5" stroke="white" stroke-width="0.008"/>')
+			parts.append(f'<text x="{round(x + h / 2, 3)}" y="{round(y + h / 2, 3)}" '
+						 f'font-size="{h * 0.32:.3f}" fill="{TEXT}" text-anchor="middle" '
+						 f'dominant-baseline="middle" font-family="Roboto, Arial, sans-serif">'
+						 f'{label}</text>')
+	return "".join(parts)
+
+
+def distance_focus_svg(field, frame, position):
+	"""Case du client, sa voisine la plus basse et la direction voulue -grad(d)."""
+	h = field.step
+	ny, nx = field.d.shape
+	i, j = min(max(int(position[1] / h), 0), ny - 1), min(max(int(position[0] / h), 0), nx - 1)
+	neighbors = [(i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1)
+				 if (di, dj) != (0, 0) and 0 <= i + di < ny and 0 <= j + dj < nx]
+	lowest = min(neighbors, key=lambda c: field.d[c])
+	parts = []
+	for (ci, cj), style in (((i, j), 'stroke-width="0.04"'),
+							(lowest, 'stroke-width="0.03" stroke-dasharray="0.05 0.03"')):
+		parts.append(f'<rect x="{frame.x(cj * h)}" y="{frame.y((ci + 1) * h)}" width="{h}" '
+					 f'height="{h}" fill="none" stroke="{TEXT}" {style}/>')
+	wanted = field.direction(position)
+	if wanted is not None:
+		start = np.asarray(position, dtype=float)
+		end = start + 0.8 * wanted
+		side = 0.08 * np.array([-wanted[1], wanted[0]])
+		left, right = end - 0.15 * wanted + side, end - 0.15 * wanted - side
+		parts.append(_line(frame, *start, *end, WANTED_ARROW, 0.05))
+		head = " ".join(f"{frame.x(px)},{frame.y(py)}" for px, py in (end, left, right))
+		parts.append(f'<polygon points="{head}" fill="{WANTED_ARROW}"/>')
 	return "".join(parts)
 
 

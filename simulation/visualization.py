@@ -291,7 +291,8 @@ def trajectory_figure(model):
 	b, p = model.behavior, model.parameters
 	ax.text(0, -0.2, f"time step {model.time_step} s · radius {b['radius']} m · "
 					 f"max speed {b['max_speed']} m/s · acceleration {b['acceleration']} m/s² · "
-					 f"braking {b['deceleration']} m/s² · pick {b['pick_time']} s · "
+					 f"braking {b['deceleration']} m/s² · lateral {b['lateral_acceleration']} m/s² · "
+					 f"pick {b['pick_time']} s · "
 					 f"payment {p['payment_base_time']} s + {p['payment_time_per_item']} s per item",
 			transform=ax.transAxes, fontsize=8, color="#6b7780")
 	return fig
