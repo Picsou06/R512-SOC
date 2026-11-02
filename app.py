@@ -1,3 +1,4 @@
+import math
 import os
 import threading
 import time
@@ -6,10 +7,11 @@ import solara
 import solara.lab
 from mesa.visualization.utils import force_update, update_counter
 
-from simulation.client import STATES
+from simulation.client import MIN_TURN_SPEED, STATES, signed_angle
 from simulation.model import StoreModel
 from simulation.visualization import STATE_COLORS
-from simulation.web_view import Frame, collision_boxes_svg, store_svg, trajectories_svg
+from simulation.web_view import (Frame, collision_boxes_svg, distance_focus_svg, distance_map_svg,
+								 distance_window, store_svg, trajectories_svg)
 
 DEFAULT_CONFIG = "configs/reference.json"
 MANY_CLIENTS = 10
@@ -22,9 +24,9 @@ def _pace(time_step, factor):
 	return period, max(1, round(period * factor / time_step))
 
 
-def _create_model(path):
+def _create_model(path, distance_mode=False):
 	try:
-		return StoreModel(path), None
+		return StoreModel(path, max_clients=1 if distance_mode else None), None
 	except (OSError, ValueError, KeyError, TypeError) as e:
 		return None, f"{type(e).__name__}: {e}"
 
@@ -75,10 +77,26 @@ def _client_svg(client, frame, radius, transition_ms, full_label):
 	)
 
 
+def _followed(model, distance_mode):
+	if not distance_mode or not model.present_clients:
+		return None
+	client = model.present_clients[0]
+	return client if client.field is not None else None
+
+
 @solara.component
-def StoreView(model, transition_ms, collision_boxes):
+def StoreView(model, transition_ms, collision_boxes, distance_mode):
 	update_counter.get()
 	frame = solara.use_memo(lambda: Frame(model.config), dependencies=[id(model)])
+	followed = _followed(model, distance_mode)
+	view_box = frame.view_box
+	distances = ""
+	if followed is not None:
+		window = distance_window(frame, followed.position)
+		view_box = " ".join(f"{v:.3f}" for v in window)
+		distances = (distance_map_svg(followed.field, frame, window)
+					 + distance_focus_svg(followed.field, frame, followed.position))
+		transition_ms = 0
 	stocks = tuple(sorted(model.stocks.items()))
 	background = solara.use_memo(lambda: store_svg(model.config, model.stocks),
 								 dependencies=[id(model), stocks])
@@ -96,22 +114,44 @@ def StoreView(model, transition_ms, collision_boxes):
 			   f"aspect-ratio:{ratio:.4f}",
 		children=[
 			solara.HTML(tag="div", style=layer, unsafe_innerHTML=(
-				f'<svg viewBox="{frame.view_box}" style="width:100%;height:100%;display:block">'
+				f'<svg viewBox="{view_box}" style="width:100%;height:100%;display:block">'
 				f"{background}</svg>")),
 			solara.HTML(tag="div", style=layer, unsafe_innerHTML=(
-				f'<svg viewBox="{frame.view_box}" style="width:100%;height:100%;display:block">'
+				f'<svg viewBox="{view_box}" style="width:100%;height:100%;display:block">'
+				f"{distances}"
 				f"{trajectories_svg(model, frame) if few else ''}"
 				f"{collision_boxes_svg(model.obstacles, frame) if collision_boxes else ''}</svg>")),
-			solara.v.Html(tag="svg", attributes={"viewBox": frame.view_box}, style_=layer,
+			solara.v.Html(tag="svg", attributes={"viewBox": view_box},
+						  style_=layer + (";opacity:0.55" if followed is not None else ""),
 						  children=moving),
 		],
 	)
 
 
+def _distance_details(model, client):
+	lines = [f"<b>Distance to goal d:</b> {client.field.value(client.position):.2f} m"]
+	wanted = client.field.direction(client.position)
+	heading = client.heading
+	if wanted is not None:
+		gap = signed_angle(heading, wanted)
+		lines.append(f"<b>Wanted direction −∇d:</b> "
+					 f"{math.degrees(math.atan2(wanted[1], wanted[0])):.0f}°")
+		lines.append(f"<b>Heading θ:</b> {math.degrees(math.atan2(heading[1], heading[0])):.0f}° "
+					 f"(gap α {math.degrees(gap):.0f}°)")
+	omega = model.behavior["lateral_acceleration"] / max(client.speed, MIN_TURN_SPEED)
+	lines.append(f"<b>Max turn rate:</b> {math.degrees(omega):.0f}°/s at {client.speed:.2f} m/s")
+	lines.append("<span style='opacity:0.7'>solid square: client cell · dashed: lowest "
+				 "neighbour · blue arrow: −∇d</span>")
+	return lines
+
+
 @solara.component
-def Information(model):
+def Information(model, distance_mode):
 	update_counter.get()
 	lines = [f"<b>Time:</b> {model.current_time:.1f} s"]
+	followed = _followed(model, distance_mode)
+	if followed is not None:
+		lines += _distance_details(model, followed)
 	if model.total_clients > MANY_CLIENTS:
 		lines += _summary(model)
 		solara.HTML(tag="div", unsafe_innerHTML="<br>".join(lines),
@@ -158,6 +198,7 @@ def Page():
 	model = solara.use_reactive(initial)
 	path = solara.use_reactive(DEFAULT_CONFIG)
 	collision_boxes = solara.use_reactive(_collision_boxes(initial))
+	distance_mode = solara.use_reactive(False)
 	playing = solara.use_reactive(False)
 	speed = solara.use_reactive("x1")
 	error = solara.use_reactive(initial_error)
@@ -168,7 +209,7 @@ def Page():
 	solara.use_effect(dark_theme, [])
 
 	def load():
-		new, problem = _create_model(path.value)
+		new, problem = _create_model(path.value, distance_mode.value)
 		error.set(problem)
 		if new is not None:
 			model.set(new)
@@ -229,11 +270,27 @@ def Page():
 		playing.set(False)
 		load()
 
+	def switch_distance_mode(enabled):
+		distance_mode.set(enabled)
+		restart()
+
 	finished = model.value is None or not model.value.running
 	time_step = model.value.time_step if model.value is not None else FRAME_PERIOD
 	transition_ms = round(_pace(time_step, SPEEDS[speed.value])[0] * 1000)
 
 	solara.Title("Store simulation")
+	solara.Style("""
+		.v-input--selection-controls {
+			margin-top: 4px !important;
+			padding-top: 0 !important;
+		}
+		.v-input--selection-controls .v-messages {
+			display: none !important;
+		}
+		.v-input--selection-controls .v-input__slot {
+			margin-bottom: 0 !important;
+		}
+	""")
 	with solara.Columns([1, 3]):
 		with solara.Column():
 			with solara.Card("Controls"):
@@ -248,12 +305,15 @@ def Page():
 				solara.Text("Playback speed")
 				solara.ToggleButtonsSingle(value=speed, values=list(SPEEDS))
 			with solara.Card("Configuration"):
-				solara.InputText("File", value=path, continuous_update=False)
+				solara.InputText("File", value=path, continuous_update=False, dense=True, hide_details=True)
 				solara.Checkbox(label="Collision boxes", value=collision_boxes)
-				solara.Button("Load", on_click=restart, text=True)
+				solara.Checkbox(label="Distance map (1 client)", value=distance_mode.value,
+								on_value=switch_distance_mode)
+				with solara.CardActions():
+					solara.Button("Load", on_click=restart, text=True)
 			with solara.Card("Information"):
 				if model.value is not None:
-					Information(model.value)
+					Information(model.value, distance_mode.value)
 		with solara.Column():
 			if error.value and model.value is None:
 				solara.Error(f"Invalid configuration: {error.value}. Fix the file, "
@@ -262,4 +322,4 @@ def Page():
 				solara.Error(f"Invalid configuration, the last valid store is still shown. "
 							 f"{error.value}")
 			if model.value is not None:
-				StoreView(model.value, transition_ms, collision_boxes.value)
+				StoreView(model.value, transition_ms, collision_boxes.value, distance_mode.value)
