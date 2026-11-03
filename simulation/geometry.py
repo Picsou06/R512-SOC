@@ -182,6 +182,9 @@ class DistanceField:
 		return (min(max(int(point[1] / GRID_STEP), 0), ny - 1),
 				min(max(int(point[0] / GRID_STEP), 0), nx - 1))
 
+	def reachable(self, point):
+		return math.isfinite(self.d[self.cell(point)])
+
 	def _free_cell_near(self, point):
 		i, j = self.cell(point)
 		if self.free[i, j]:
