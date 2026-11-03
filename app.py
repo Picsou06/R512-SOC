@@ -280,15 +280,11 @@ def Page():
 
 	solara.Title("Store simulation")
 	solara.Style("""
-		.v-input--selection-controls {
-			margin-top: 4px !important;
-			padding-top: 0 !important;
+		.v-checkbox {
+			--v-input-control-height: 40px;
 		}
-		.v-input--selection-controls .v-messages {
+		.v-checkbox .v-input__details {
 			display: none !important;
-		}
-		.v-input--selection-controls .v-input__slot {
-			margin-bottom: 0 !important;
 		}
 	""")
 	with solara.Columns([1, 3]):

@@ -95,8 +95,8 @@ detaille dans [`doc/cdc.md`](doc/cdc.md)).
 
 | Mois | Semaines | Modele | Phase | Contenu                                                                                 | Statut  |
 | ---- | -------- | ------ | ----- | --------------------------------------------------------------------------------------- | ------- |
-| 1    | 1        | M0     | 1     | Le magasin seul, sans client : chargement du JSON, affichage du magasin                 | A venir |
-| 1    | 2 - 4    | M1     | 2     | Plusieurs clients qui s'ignorent et vont vers un objectif en contournant murs et rayons | A venir |
+| 1    | 1        | M0     | 1     | Le magasin seul, sans client : chargement du JSON, affichage du magasin                 | Fait    |
+| 1    | 2 - 4    | M1     | 2     | Plusieurs clients qui s'ignorent et vont vers un objectif en contournant murs et rayons | Fait    |
 | 2    | 5 - 6    | M2     | 3     | Les contacts entre clients et la file d'attente aux caisses                             | A venir |
 | 2    | 7        | M3     | 4     | La ressource limitee, l'entree progressive, les caisses et la sortie                    | A venir |
 | 2    | 8        | M4     | 5     | Les indicateurs et la comparaison de configurations                                     | A venir |
