@@ -2,8 +2,9 @@ import math
 from html import escape
 
 import numpy as np
+from contourpy import contour_generator
 
-from simulation.config import DIRECTIONS, door_interval
+from simulation.config import DIRECTIONS, EXIT_TYPES, door_interval
 from simulation.geometry import GRID_STEP
 from simulation.visualization import (
 	CHECKOUT_BELT, CHECKOUT_CLOSED, CHECKOUT_OPEN, DOOR_COLORS, FLOOR, GLASS_EDGE,
@@ -14,6 +15,12 @@ from simulation.visualization import (
 MARGIN = 1.5
 DISTANCE_WINDOW = 6.0
 WANTED_ARROW = "#00b8d4"
+CELL_PRICE = "#b71c1c"
+WAVE = "#e53935"
+WAVE_SPACING = 0.4
+WAVE_THICKNESS = 0.03
+RESOURCE_HOVER_RADIUS = 0.7
+DOOR_HOVER_THICKNESS = 1.0
 
 
 class Frame:
@@ -160,10 +167,12 @@ def distance_map_svg(field, frame, window):
 				fill, label = f"hsl({120 + 120 * t:.0f}, 70%, 55%)", f"{value:.1f}"
 			parts.append(f'<rect x="{x}" y="{y}" width="{h}" height="{h}" fill="{fill}" '
 						 f'fill-opacity="0.5" stroke="white" stroke-width="0.008"/>')
-			parts.append(f'<text x="{round(x + h / 2, 3)}" y="{round(y + h / 2, 3)}" '
-						 f'font-size="{h * 0.32:.3f}" fill="{TEXT}" text-anchor="middle" '
-						 f'dominant-baseline="middle" font-family="Roboto, Arial, sans-serif">'
-						 f'{label}</text>')
+			for offset, size, color, content in ((0.32, 0.3, TEXT, label),
+												 (0.72, 0.26, CELL_PRICE, f"×{field.cost[i, j]:.1f}")):
+				parts.append(f'<text x="{round(x + h / 2, 3)}" y="{round(y + h * offset, 3)}" '
+							 f'font-size="{h * size:.3f}" fill="{color}" text-anchor="middle" '
+							 f'dominant-baseline="middle" font-family="Roboto, Arial, sans-serif">'
+							 f'{content}</text>')
 	return "".join(parts)
 
 
@@ -189,6 +198,47 @@ def distance_focus_svg(field, frame, position):
 		head = " ".join(f"{frame.x(px)},{frame.y(py)}" for px, py in (end, left, right))
 		parts.append(f'<polygon points="{head}" fill="{WANTED_ARROW}"/>')
 	return "".join(parts)
+
+
+def hover_targets(model, frame):
+	config = model.config
+	targets = {}
+	for resource in config["resources"]:
+		attributes = {"cx": frame.x(resource["x"]), "cy": frame.y(resource["y"]),
+					  "r": RESOURCE_HOVER_RADIUS, "fill": "transparent"}
+		targets[f"product {resource['id']}"] = ("circle", attributes,
+												lambda r=resource: model.product_field(r))
+	for checkout in config.get("checkouts", []):
+		if checkout["open"]:
+			attributes = {"x": frame.x(checkout["x"]), "y": frame.y(checkout["y"] + checkout["height"]),
+						  "width": checkout["width"], "height": checkout["height"], "fill": "transparent"}
+			targets[f"checkout {checkout['id']}"] = ("rect", attributes,
+													 lambda c=checkout: model.checkout_field(c))
+	for door in config["doors"]:
+		if door["type"] in EXIT_TYPES:
+			start, end = door_interval(door)
+			(xa, ya), (xb, yb) = {
+				"bottom": ((start, 0), (end, 0)),
+				"top": ((start, frame.height), (end, frame.height)),
+				"left": ((0, start), (0, end)),
+				"right": ((frame.width, start), (frame.width, end)),
+			}[door["wall"]]
+			attributes = {"x1": frame.x(xa), "y1": frame.y(ya), "x2": frame.x(xb), "y2": frame.y(yb),
+						  "stroke": "transparent", "stroke-width": DOOR_HOVER_THICKNESS}
+			targets[f"door {door['name']}"] = ("line", attributes, model.exit_field)
+	return targets
+
+
+def waves_svg(field, frame):
+	ny, nx = field.d.shape
+	distances = np.ma.masked_invalid(field.d)
+	lines = contour_generator((np.arange(nx) + 0.5) * GRID_STEP, (np.arange(ny) + 0.5) * GRID_STEP, distances)
+	parts = []
+	for level in np.arange(WAVE_SPACING, distances.max(), WAVE_SPACING):
+		for line in lines.lines(level):
+			parts.append("M" + "L".join(f"{frame.x(x)} {frame.y(y)}" for x, y in line))
+	return (f'<path d="{"".join(parts)}" fill="none" stroke="{WAVE}" stroke-width="{WAVE_THICKNESS}" '
+			f'stroke-opacity="0.75"/>')
 
 
 def collision_boxes_svg(obstacles, frame):

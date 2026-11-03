@@ -11,7 +11,7 @@ from simulation.client import MIN_TURN_SPEED, STATES, signed_angle
 from simulation.model import StoreModel
 from simulation.visualization import STATE_COLORS
 from simulation.web_view import (Frame, collision_boxes_svg, distance_focus_svg, distance_map_svg,
-								 distance_window, store_svg, trajectories_svg)
+								 distance_window, hover_targets, store_svg, trajectories_svg, waves_svg)
 
 DEFAULT_CONFIG = "configs/reference.json"
 MANY_CLIENTS = 10
@@ -71,10 +71,18 @@ def _client_svg(client, frame, radius, transition_ms, full_label):
 	]
 	return v.Html(
 		tag="g",
-		style_=f"transform: translate({x}px, {y}px); "
+		style_=f"transform: translate({x}px, {y}px); pointer-events: none; "
 			   f"transition: transform {transition_ms}ms linear",
 		children=children,
 	)
+
+
+@solara.component
+def HoverZone(name, tag, attributes, hovered):
+	zone = solara.v.Html(tag=tag, attributes=attributes)
+	solara.v.use_event(zone, "mouseenter", lambda *_: hovered.set(name))
+	solara.v.use_event(zone, "mouseleave", lambda *_: hovered.set(None))
+	return zone
 
 
 def _followed(model, distance_mode):
@@ -88,6 +96,11 @@ def _followed(model, distance_mode):
 def StoreView(model, transition_ms, collision_boxes, distance_mode):
 	update_counter.get()
 	frame = solara.use_memo(lambda: Frame(model.config), dependencies=[id(model)])
+	hovered = solara.use_reactive(None)
+	targets = solara.use_memo(lambda: hover_targets(model, frame), dependencies=[id(model)])
+	waves = solara.use_memo(
+		lambda: waves_svg(targets[hovered.value][2](), frame) if hovered.value in targets else "",
+		dependencies=[id(model), hovered.value])
 	followed = _followed(model, distance_mode)
 	view_box = frame.view_box
 	distances = ""
@@ -107,6 +120,8 @@ def StoreView(model, transition_ms, collision_boxes, distance_mode):
 	radius = model.behavior["radius"]
 	moving = [_client_svg(client, frame, radius, transition_ms, few).key(client.identifier)
 			  for client in model.present_clients]
+	zones = [HoverZone(name, tag, attributes, hovered).key(name)
+			 for name, (tag, attributes, _) in targets.items()]
 
 	solara.v.Html(
 		tag="div",
@@ -118,18 +133,21 @@ def StoreView(model, transition_ms, collision_boxes, distance_mode):
 				f"{background}</svg>")),
 			solara.HTML(tag="div", style=layer, unsafe_innerHTML=(
 				f'<svg viewBox="{view_box}" style="width:100%;height:100%;display:block">'
+				f"{waves}</svg>")),
+			solara.HTML(tag="div", style=layer, unsafe_innerHTML=(
+				f'<svg viewBox="{view_box}" style="width:100%;height:100%;display:block">'
 				f"{distances}"
 				f"{trajectories_svg(model, frame) if few else ''}"
 				f"{collision_boxes_svg(model.obstacles, frame) if collision_boxes else ''}</svg>")),
 			solara.v.Html(tag="svg", attributes={"viewBox": view_box},
 						  style_=layer + (";opacity:0.55" if followed is not None else ""),
-						  children=moving),
+						  children=zones + moving),
 		],
 	)
 
 
 def _distance_details(model, client):
-	lines = [f"<b>Distance to goal d:</b> {client.field.value(client.position):.2f} m"]
+	lines = [f"<b>Cost to goal d:</b> {client.field.value(client.position):.2f}"]
 	wanted = client.field.direction(client.position)
 	heading = client.heading
 	if wanted is not None:
