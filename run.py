@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -24,6 +25,8 @@ def main():
 		return
 
 	model = StoreModel(args.config).simulate()
+	if not model.exited_clients:
+		sys.exit("No client left the store: nothing to plot.")
 	if len(model.clients) <= 5:
 		for client in model.clients:
 			print(client.identifier)
