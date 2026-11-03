@@ -4,6 +4,8 @@ import math
 import numpy as np
 
 GRID_STEP = 0.2
+OBSTACLE_MARGIN = 0.5
+OBSTACLE_COST = 1.0
 
 
 def _moves():
@@ -46,7 +48,7 @@ class Obstacles:
 		self.client_radius = client_radius
 		self.width, self.height = width, height
 		self.one_way_zones = list(one_way_zones)
-		self.free, self.direction = self._grid()
+		self.free, self.cost, self.direction = self._grid()
 
 	def _grid(self):
 		nx = math.ceil(self.width / GRID_STEP)
@@ -55,13 +57,14 @@ class Obstacles:
 		ys = (np.arange(ny) + 0.5) * GRID_STEP
 		x, y = np.meshgrid(xs, ys)
 		r = self.client_radius
-		free = (x >= r) & (x <= self.width - r) & (y >= r) & (y <= self.height - r)
+		clearance = np.minimum.reduce([x - r, self.width - r - x, y - r, self.height - r - y])
 		for cx, cy in self.balls:
-			free &= np.hypot(x - cx, y - cy) >= self.min_distance
+			clearance = np.minimum(clearance, np.hypot(x - cx, y - cy) - self.min_distance)
+		cost = 1 + OBSTACLE_COST * np.clip(1 - clearance / OBSTACLE_MARGIN, 0, 1)
 		direction = np.zeros((ny, nx, 2))
 		for (x0, y0, x1, y1), sense in self.one_way_zones:
 			direction[(x > x0) & (x < x1) & (y > y0) & (y < y1)] = sense
-		return free, direction
+		return clearance >= 0, cost, direction
 
 	def push_out(self, position, iterations=10, tolerance=0.01):
 		p = np.array(position, dtype=float)
@@ -111,9 +114,10 @@ class Obstacles:
 		return old + move
 
 
-def distance_field(free, direction, goals):
+def distance_field(free, cost, direction, goals):
 	ny, nx = free.shape
 	free = free.ravel().tolist()
+	cost = cost.ravel().tolist()
 	sense = direction.reshape(-1, 2).tolist()
 	d = [math.inf] * (nx * ny)
 	queue = []
@@ -133,7 +137,7 @@ def distance_field(free, direction, goals):
 				continue
 			if any(-dj * sense[c][0] - di * sense[c][1] < -1e-9 for c in (k, a * nx + b)):
 				continue
-			nd = dist + length * GRID_STEP
+			nd = dist + length * GRID_STEP * (cost[k] + cost[a * nx + b]) / 2
 			if nd < d[a * nx + b]:
 				d[a * nx + b] = nd
 				heapq.heappush(queue, (nd, a, b))
@@ -163,9 +167,10 @@ class DistanceField:
 
 	def __init__(self, obstacles, goal_points):
 		self.free = obstacles.free
+		self.cost = obstacles.cost
 		inside = [p for p in goal_points if self.free[self.cell(p)]]
 		goals = {self._free_cell_near(point): 0.0 for point in inside or goal_points}
-		self.d = distance_field(self.free, obstacles.direction, goals)
+		self.d = distance_field(self.free, self.cost, obstacles.direction, goals)
 		self.gx = _gradient(self.d, axis=1)
 		self.gy = _gradient(self.d, axis=0)
 

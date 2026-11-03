@@ -64,15 +64,11 @@ class StoreModel(mesa.Model):
 	def _create_client(self, description):
 		doors = {d["name"]: d for d in self.config["doors"]}
 		resources = {r["id"]: r for r in self.config["resources"]}
-		shelves = {w["id"]: w for w in self.config["walls"] if w["type"] == "shelf"}
 
 		start = self._door_point(doors[description["door"]])
 		steps = []
 		for product_id in self._draw_products(description["products"]):
-			resource = resources[product_id]
-			field = self._field(("product", product_id),
-								lambda: self._product_goal(resource, shelves[resource["shelf"]]))
-			steps.append({"state": "to_product", "field": field})
+			steps.append({"state": "to_product", "field": self.product_field(resources[product_id])})
 			steps.append({"state": "picking", "duration": self.behavior["pick_time"],
 						  "product": product_id})
 		steps.append({"state": "to_checkout"})
@@ -118,7 +114,11 @@ class StoreModel(mesa.Model):
 		goal = self._door_goal(door)
 		return goal[self.random.randrange(len(goal))]
 
-	def _product_goal(self, resource, shelf):
+	def product_field(self, resource):
+		return self._field(("product", resource["id"]), lambda: self._product_goal(resource))
+
+	def _product_goal(self, resource):
+		shelf = next(w for w in self.config["walls"] if w["id"] == resource["shelf"])
 		x, y = resource["x"], resource["y"]
 		d = self.behavior["radius"] + self.obstacles.thickness + OFFSET
 		if abs(x - shelf["x"]) < 1e-9 or abs(x - (shelf["x"] + shelf["width"])) < 1e-9:
@@ -138,7 +138,7 @@ class StoreModel(mesa.Model):
 	def _exits(self):
 		return [d for d in self.config["doors"] if d["type"] in EXIT_TYPES]
 
-	def _checkout_field(self, checkout):
+	def checkout_field(self, checkout):
 		x, y = self._checkout_point(checkout)
 		start = (x - self.parameters["checkout_distance"], y)
 		return self._field(("checkout", checkout["id"]),
@@ -153,7 +153,7 @@ class StoreModel(mesa.Model):
 		for checkout in self.config.get("checkouts", []):
 			if not checkout["open"]:
 				continue
-			field = self._checkout_field(checkout)
+			field = self.checkout_field(checkout)
 			there = field.value(start)
 			back = self.exit_field().value(self._checkout_point(checkout))
 			cost = there + back + penalty * self.load[checkout["id"]]
