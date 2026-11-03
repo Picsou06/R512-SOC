@@ -161,12 +161,8 @@ def validate_config(config):
 	if flow:
 		if not isinstance(flow.get("count"), int) or flow["count"] < 0:
 			raise ValueError("client_flow: count must be a positive integer")
-		if flow.get("interval", -1) < 0 or flow.get("start", 0.0) < 0:
-			raise ValueError("client_flow: interval and start must be positive")
-		for name in flow.get("doors", []):
-			door = doors.get(name)
-			if door is None or door["type"] not in ENTRANCE_TYPES:
-				raise ValueError(f"client_flow: {name!r} is not an entrance")
+		if flow.get("interval", -1) < 0:
+			raise ValueError("client_flow: interval must be positive")
 		if not any(d["type"] in ENTRANCE_TYPES for d in config["doors"]):
 			raise ValueError("client_flow: the store has no entrance")
 		if "products" not in flow:
@@ -174,6 +170,8 @@ def validate_config(config):
 		_check_products(flow["products"], product_ids, "client_flow")
 	if (config["clients"] or flow) and not any(d["type"] in EXIT_TYPES for d in config["doors"]):
 		raise ValueError("the store must have at least one exit")
+	if (config["clients"] or flow) and not any(c["open"] for c in config.get("checkouts", [])):
+		raise ValueError("the store must have at least one open checkout")
 
 
 def _check_products(products, product_ids, name):

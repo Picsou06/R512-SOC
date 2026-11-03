@@ -46,24 +46,22 @@ class Obstacles:
 		self.client_radius = client_radius
 		self.width, self.height = width, height
 		self.one_way_zones = list(one_way_zones)
-		self._grids = {}
+		self.free, self.direction = self._grid()
 
-	def grid(self, step):
-		if step not in self._grids:
-			nx = math.ceil(self.width / step)
-			ny = math.ceil(self.height / step)
-			xs = (np.arange(nx) + 0.5) * step
-			ys = (np.arange(ny) + 0.5) * step
-			x, y = np.meshgrid(xs, ys)
-			r = self.client_radius
-			free = (x >= r) & (x <= self.width - r) & (y >= r) & (y <= self.height - r)
-			for cx, cy in self.balls:
-				free &= np.hypot(x - cx, y - cy) >= self.min_distance
-			direction = np.zeros((ny, nx, 2))
-			for (x0, y0, x1, y1), sense in self.one_way_zones:
-				direction[(x > x0) & (x < x1) & (y > y0) & (y < y1)] = sense
-			self._grids[step] = free, direction
-		return self._grids[step]
+	def _grid(self):
+		nx = math.ceil(self.width / GRID_STEP)
+		ny = math.ceil(self.height / GRID_STEP)
+		xs = (np.arange(nx) + 0.5) * GRID_STEP
+		ys = (np.arange(ny) + 0.5) * GRID_STEP
+		x, y = np.meshgrid(xs, ys)
+		r = self.client_radius
+		free = (x >= r) & (x <= self.width - r) & (y >= r) & (y <= self.height - r)
+		for cx, cy in self.balls:
+			free &= np.hypot(x - cx, y - cy) >= self.min_distance
+		direction = np.zeros((ny, nx, 2))
+		for (x0, y0, x1, y1), sense in self.one_way_zones:
+			direction[(x > x0) & (x < x1) & (y > y0) & (y < y1)] = sense
+		return free, direction
 
 	def push_out(self, position, iterations=10, tolerance=0.01):
 		p = np.array(position, dtype=float)
@@ -113,7 +111,7 @@ class Obstacles:
 		return old + move
 
 
-def distance_field(free, direction, goals, step):
+def distance_field(free, direction, goals):
 	ny, nx = free.shape
 	free = free.ravel().tolist()
 	sense = direction.reshape(-1, 2).tolist()
@@ -135,18 +133,18 @@ def distance_field(free, direction, goals, step):
 				continue
 			if any(-dj * sense[c][0] - di * sense[c][1] < -1e-9 for c in (k, a * nx + b)):
 				continue
-			nd = dist + length * step
+			nd = dist + length * GRID_STEP
 			if nd < d[a * nx + b]:
 				d[a * nx + b] = nd
 				heapq.heappush(queue, (nd, a, b))
 	return np.array(d).reshape(ny, nx)
 
 
-def _gradient(d, step, axis):
+def _gradient(d, axis):
 	forward = np.full(d.shape, np.nan)
 	backward = np.full(d.shape, np.nan)
 	with np.errstate(invalid="ignore"):
-		difference = np.diff(d, axis=axis) / step
+		difference = np.diff(d, axis=axis) / GRID_STEP
 	head = [slice(None)] * 2
 	tail = [slice(None)] * 2
 	head[axis], tail[axis] = slice(None, -1), slice(1, None)
@@ -163,36 +161,34 @@ def _gradient(d, step, axis):
 
 class DistanceField:
 
-	def __init__(self, obstacles, goal_points, step=GRID_STEP):
-		self.step = step
-		free, direction = obstacles.grid(step)
-		self.free = free
+	def __init__(self, obstacles, goal_points):
+		self.free = obstacles.free
 		inside = [p for p in goal_points if self.free[self.cell(p)]]
 		goals = {self._free_cell_near(point): 0.0 for point in inside or goal_points}
-		self.d = distance_field(free, direction, goals, step)
-		self.gx = _gradient(self.d, step, axis=1)
-		self.gy = _gradient(self.d, step, axis=0)
+		self.d = distance_field(self.free, obstacles.direction, goals)
+		self.gx = _gradient(self.d, axis=1)
+		self.gy = _gradient(self.d, axis=0)
 
 	def _center(self, cell):
-		return (cell[1] + 0.5) * self.step, (cell[0] + 0.5) * self.step
+		return (cell[1] + 0.5) * GRID_STEP, (cell[0] + 0.5) * GRID_STEP
 
 	def cell(self, point):
 		ny, nx = self.free.shape
-		return (min(max(int(point[1] / self.step), 0), ny - 1),
-				min(max(int(point[0] / self.step), 0), nx - 1))
+		return (min(max(int(point[1] / GRID_STEP), 0), ny - 1),
+				min(max(int(point[0] / GRID_STEP), 0), nx - 1))
 
 	def _free_cell_near(self, point):
 		i, j = self.cell(point)
 		if self.free[i, j]:
 			return i, j
 		ii, jj = np.nonzero(self.free)
-		centers_x, centers_y = (jj + 0.5) * self.step, (ii + 0.5) * self.step
+		centers_x, centers_y = (jj + 0.5) * GRID_STEP, (ii + 0.5) * GRID_STEP
 		k = int(np.argmin(np.hypot(centers_x - point[0], centers_y - point[1])))
 		return int(ii[k]), int(jj[k])
 
 	def _interpolate(self, grid, point):
 		ny, nx = grid.shape
-		u, v = point[0] / self.step - 0.5, point[1] / self.step - 0.5
+		u, v = point[0] / GRID_STEP - 0.5, point[1] / GRID_STEP - 0.5
 		j0, i0 = math.floor(u), math.floor(v)
 		fu, fv = u - j0, v - i0
 		total = weight = 0.0

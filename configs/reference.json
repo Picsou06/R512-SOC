@@ -1,6 +1,5 @@
 {
 	"name": "reference",
-	"description": "Reference configuration.",
 
 	"parameters": {
 		"time_step": 0.1,

@@ -4,6 +4,7 @@ from html import escape
 import numpy as np
 
 from simulation.config import DIRECTIONS, door_interval
+from simulation.geometry import GRID_STEP
 from simulation.visualization import (
 	CHECKOUT_BELT, CHECKOUT_CLOSED, CHECKOUT_OPEN, DOOR_COLORS, FLOOR, GLASS_EDGE,
 	ONE_WAY, ONE_WAY_ARROW, RESOURCE, RESOURCE_EDGE, SHELF, SHELF_EDGE, SHELF_LINE, STATE_COLORS,
@@ -34,7 +35,7 @@ class Frame:
 		return f"0 0 {self.view_width:g} {self.view_height:g}"
 
 
-def store_svg(config, stocks=None):
+def store_svg(config, stocks):
 	f = Frame(config)
 	w, h = f.width, f.height
 	parts = [
@@ -106,8 +107,7 @@ def store_svg(config, stocks=None):
 
 	shelves = {z["id"]: z for z in config["walls"] if z["type"] == "shelf"}
 	for resource in config["resources"]:
-		stock = resource["stock"] if stocks is None else stocks[resource["id"]]
-		parts.append(_resource_svg(f, resource, shelves[resource["shelf"]], stock))
+		parts.append(_resource_svg(f, resource, shelves[resource["shelf"]], stocks[resource["id"]]))
 
 	return "".join(parts)
 
@@ -135,7 +135,7 @@ def distance_window(frame, point):
 
 def distance_map_svg(field, frame, window):
 	wx, wy, ww, wh = window
-	h = field.step
+	h = GRID_STEP
 	ny, nx = field.d.shape
 	x0, x1 = wx - MARGIN, wx + ww - MARGIN
 	y0, y1 = frame.height + MARGIN - wy - wh, frame.height + MARGIN - wy
@@ -168,7 +168,7 @@ def distance_map_svg(field, frame, window):
 
 
 def distance_focus_svg(field, frame, position):
-	h = field.step
+	h = GRID_STEP
 	ny, nx = field.d.shape
 	i, j = field.cell(position)
 	neighbors = [(i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1)
