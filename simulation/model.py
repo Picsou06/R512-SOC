@@ -43,8 +43,7 @@ class StoreModel(mesa.Model):
 		arrivals = [(d.get("arrival", 0.0), d) for d in self.config["clients"]]
 		flow = self.config.get("client_flow")
 		if flow:
-			entrances = flow.get("doors") or [d["name"] for d in self.config["doors"]
-											  if d["type"] in ENTRANCE_TYPES]
+			entrances = [d["name"] for d in self.config["doors"] if d["type"] in ENTRANCE_TYPES]
 			taken = {d["id"] for d in self.config["clients"]}
 			number = 0
 			for k in range(flow["count"]):
@@ -53,7 +52,7 @@ class StoreModel(mesa.Model):
 					number += 1
 				description = {"id": f"client_{number}", "door": entrances[k % len(entrances)],
 							   "products": list(flow["products"])}
-				arrivals.append((flow.get("start", 0.0) + k * flow["interval"], description))
+				arrivals.append((k * flow["interval"], description))
 		arrivals.sort(key=lambda a: a[0])
 		return arrivals[:self.max_clients]
 
@@ -160,8 +159,6 @@ class StoreModel(mesa.Model):
 			cost = there + back + penalty * self.load[checkout["id"]]
 			if best is None or cost < best[0]:
 				best = (cost, checkout["id"], field)
-		if best is None:
-			raise ValueError("no open checkout")
 		_, checkout_id, field = best
 		self.load[checkout_id] += 1
 		return checkout_id, field

@@ -41,7 +41,7 @@ python -m venv .venv
 
 ## Utilisation
 
-Interface de simulation (Mesa, dans le navigateur, avec Play / Pause / Step / Reset) :
+Interface de simulation (Mesa, dans le navigateur, avec Play / Pause / Step / Restart) :
 
 ```powershell
 .venv\Scripts\python server.py
