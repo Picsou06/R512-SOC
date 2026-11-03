@@ -20,7 +20,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 │   └── reference.json           # Configuration de reference
 ├── simulation/
 │   ├── config.py                # Chargement / validation / duplication des configs JSON
-│   ├── geometry.py              # Obstacles, plus court chemin, contraintes de non-penetration
+│   ├── geometry.py              # Obstacles, carte des distances, contraintes de non-penetration
 │   ├── client.py                # Agent client (deplacement, prise, paiement)
 │   ├── model.py                 # Modele Mesa (magasin, clients, boucle de simulation)
 │   ├── visualization.py         # Figures du rapport (matplotlib)

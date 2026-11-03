@@ -96,13 +96,11 @@ class Client(ContinuousSpaceAgent):
 			self.speed = 0.0
 			return True
 
-		# 1-3. direction voulue -grad(d), cap tourne au plus de a_lat / v * dt
 		wanted = self.field.direction(self.position)
-		gap = 0.0 if wanted is None else _signed_angle(self.heading, wanted)
+		gap = 0.0 if wanted is None else signed_angle(self.heading, wanted)
 		max_turn = b["lateral_acceleration"] / max(self.speed, MIN_TURN_SPEED) * dt
 		self.heading = _rotate(self.heading, max(-max_turn, min(max_turn, gap)))
 
-		# 4. vitesse : freinage avant la cible, ralentissement si le cap est mal aligne
 		wanted_speed = min(b["max_speed"], math.sqrt(2 * b["deceleration"] * remaining), remaining / dt)
 		wanted_speed *= max(0.0, math.cos(gap))
 		if wanted_speed > self.speed:
@@ -110,7 +108,6 @@ class Client(ContinuousSpaceAgent):
 		else:
 			self.speed = max(wanted_speed, self.speed - b["deceleration"] * dt)
 
-		# 5-6. deplacement suivant le cap, puis on repousse hors des boules
 		wanted_position = obstacles.respect_direction(self.position,
 													  self.position + self.heading * self.speed * dt)
 		new, self.normal = obstacles.push_out(wanted_position)
@@ -125,7 +122,7 @@ class Client(ContinuousSpaceAgent):
 		return False
 
 
-def _signed_angle(u, v):
+def signed_angle(u, v):
 	return math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1])
 
 

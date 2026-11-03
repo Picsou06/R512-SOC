@@ -49,7 +49,6 @@ class Obstacles:
 		self._grids = {}
 
 	def grid(self, step):
-		"""Cases libres (le centre du client peut y etre) et sens unique de chaque case."""
 		if step not in self._grids:
 			nx = math.ceil(self.width / step)
 			ny = math.ceil(self.height / step)
@@ -115,10 +114,6 @@ class Obstacles:
 
 
 def distance_field(free, direction, goals, step):
-	"""Dijkstra a 16 directions : distance a pied de chaque case jusqu'aux cases objectifs.
-
-	goals associe une case (i, j) a sa distance de depart. Une case de sens unique ne
-	peut etre traversee que dans le bon sens."""
 	ny, nx = free.shape
 	free = free.ravel().tolist()
 	sense = direction.reshape(-1, 2).tolist()
@@ -138,7 +133,6 @@ def distance_field(free, direction, goals, step):
 				continue
 			if any(not free[(i + ci) * nx + j + cj] for ci, cj in crossed):
 				continue
-			# le client marche de (a, b) vers (i, j), donc de (-dj, -di) en (x, y)
 			if any(-dj * sense[c][0] - di * sense[c][1] < -1e-9 for c in (k, a * nx + b)):
 				continue
 			nd = dist + length * step
@@ -168,29 +162,27 @@ def _gradient(d, step, axis):
 
 
 class DistanceField:
-	"""Carte des distances a un objectif (ensemble de points) et direction -grad(d)."""
 
 	def __init__(self, obstacles, goal_points, step=GRID_STEP):
 		self.step = step
 		free, direction = obstacles.grid(step)
 		self.free = free
-		inside = [p for p in goal_points if self.free[self._cell(p)]]
+		inside = [p for p in goal_points if self.free[self.cell(p)]]
 		goals = {self._free_cell_near(point): 0.0 for point in inside or goal_points}
 		self.d = distance_field(free, direction, goals, step)
-		# differences centrees (decentrees du cote libre le long des obstacles)
 		self.gx = _gradient(self.d, step, axis=1)
 		self.gy = _gradient(self.d, step, axis=0)
 
 	def _center(self, cell):
 		return (cell[1] + 0.5) * self.step, (cell[0] + 0.5) * self.step
 
-	def _cell(self, point):
+	def cell(self, point):
 		ny, nx = self.free.shape
 		return (min(max(int(point[1] / self.step), 0), ny - 1),
 				min(max(int(point[0] / self.step), 0), nx - 1))
 
 	def _free_cell_near(self, point):
-		i, j = self._cell(point)
+		i, j = self.cell(point)
 		if self.free[i, j]:
 			return i, j
 		ii, jj = np.nonzero(self.free)
@@ -199,7 +191,6 @@ class DistanceField:
 		return int(ii[k]), int(jj[k])
 
 	def _interpolate(self, grid, point):
-		"""Interpolation bilineaire entre les centres des cases, en ignorant les cases bloquees."""
 		ny, nx = grid.shape
 		u, v = point[0] / self.step - 0.5, point[1] / self.step - 0.5
 		j0, i0 = math.floor(u), math.floor(v)
@@ -213,8 +204,7 @@ class DistanceField:
 		return total / weight if weight > 0 else math.nan
 
 	def _nearest_reached(self, point, reach=3):
-		"""Case atteinte par la vague la plus basse autour du point (si le client est dans une case bloquee)."""
-		i0, j0 = self._cell(point)
+		i0, j0 = self.cell(point)
 		best = None
 		for i in range(i0 - reach, i0 + reach + 1):
 			for j in range(j0 - reach, j0 + reach + 1):
@@ -232,7 +222,6 @@ class DistanceField:
 		return value
 
 	def direction(self, point):
-		"""Direction voulue -grad(d) / |grad(d)|, ou None si la vague n'a pas atteint le point."""
 		gx, gy = self._interpolate(self.gx, point), self._interpolate(self.gy, point)
 		gradient = np.array([0.0 if math.isnan(gx) else gx, 0.0 if math.isnan(gy) else gy])
 		norm = float(np.linalg.norm(gradient))

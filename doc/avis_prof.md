@@ -92,10 +92,6 @@ boules** ou **segments**). La stratégie de déplacement reste la question ouver
   `dist(x, P) ≥ r + R` pour toutes les boules P. Si le pas voulu la viole, la position
   est projetée sur le bord de la boule la plus pénétrée, plusieurs fois de suite (une
   boule peut repousser le client dans sa voisine).
-- **Contournement en mode `rush` (foncer)** : quand le client touche un obstacle et que sa
-  cible est derrière, il longe l'obstacle, toujours dans le même sens jusqu'à s'en
-  dégager (algorithme « bug »). S'il choisissait le côté à chaque pas, il resterait
-  bloqué quand la cible est pile derrière le rayon.
 - **Boîtes de collision** (`"display": {"collision_boxes": true}`, ou la case à cocher
   sur le site) : dessine en pointillés rouges la forme de collision de chaque obstacle,
   c'est-à-dire ses boules. La forme de collision du client est son

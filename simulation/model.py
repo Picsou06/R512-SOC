@@ -94,7 +94,6 @@ class StoreModel(mesa.Model):
 		return self.parameters["payment_base_time"] + self.parameters["payment_time_per_item"] * items
 
 	def _field(self, key, goal):
-		"""Carte des distances a un objectif, calculee une seule fois et partagee par les clients."""
 		if key not in self.fields:
 			self.fields[key] = DistanceField(self.obstacles, goal())
 		return self.fields[key]
@@ -121,7 +120,6 @@ class StoreModel(mesa.Model):
 		return goal[self.random.randrange(len(goal))]
 
 	def _product_goal(self, resource, shelf):
-		"""Bord de l'etagere devant le produit, sur PRODUCT_SPREAD de chaque cote."""
 		x, y = resource["x"], resource["y"]
 		d = self.behavior["radius"] + self.obstacles.thickness + OFFSET
 		if abs(x - shelf["x"]) < 1e-9 or abs(x - (shelf["x"] + shelf["width"])) < 1e-9:
@@ -142,8 +140,6 @@ class StoreModel(mesa.Model):
 		return [d for d in self.config["doors"] if d["type"] in EXIT_TYPES]
 
 	def _checkout_field(self, checkout):
-		"""Ligne qui traverse l'allee devant la caisse : le client s'arrete en la franchissant,
-		meme s'il arrive un peu de cote (il ne pourrait pas remonter une allee a sens unique)."""
 		x, y = self._checkout_point(checkout)
 		start = (x - self.parameters["checkout_distance"], y)
 		return self._field(("checkout", checkout["id"]),
