@@ -29,6 +29,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 ├── app.py                       # Interface Mesa / Solara dans le navigateur
 ├── server.py                    # Lance le site et le redemarre quand le code change
 ├── run.py                       # Export des figures, simulation sans interface
+├── check_paths.py               # Verification des trajets depuis des positions quelconques
 └── requirements.txt
 ```
 
@@ -68,6 +69,13 @@ Afficher une autre configuration et exporter l'image au lieu d'ouvrir une fenetr
 
 ```powershell
 .venv\Scripts\python run.py configs/my_variant.json --output outputs/my_variant.png
+```
+
+Verifier qu'un client atteint chaque objectif depuis des positions quelconques, sans entrer
+dans un obstacle (code de sortie 1 en cas d'echec) :
+
+```powershell
+.venv\Scripts\python check_paths.py configs/reference.json
 ```
 
 ### Creer une variante de configuration
