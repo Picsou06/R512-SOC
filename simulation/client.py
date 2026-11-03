@@ -108,8 +108,9 @@ class Client(ContinuousSpaceAgent):
 		else:
 			self.speed = max(wanted_speed, self.speed - b["deceleration"] * dt)
 
-		wanted_position = obstacles.respect_direction(self.position,
-													  self.position + self.heading * self.speed * dt)
+		wanted_position = self.position + self.heading * self.speed * dt
+		if self.field.reachable(self.position):
+			wanted_position = obstacles.respect_direction(self.position, wanted_position)
 		new, self.normal = obstacles.push_out(wanted_position)
 		if self.normal is not None:
 			self.speed = min(self.speed, float(np.linalg.norm(new - self.position)) / dt)
