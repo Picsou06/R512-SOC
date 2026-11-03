@@ -126,7 +126,6 @@ def trajectories_svg(model, frame):
 
 
 def distance_window(frame, point):
-	"""Fenetre de DISTANCE_WINDOW m de large centree sur le point, dans le repere de l'image."""
 	width = DISTANCE_WINDOW
 	height = width * frame.view_height / frame.view_width
 	x = min(max(frame.x(point[0]) - width / 2, 0), frame.view_width - width)
@@ -135,11 +134,9 @@ def distance_window(frame, point):
 
 
 def distance_map_svg(field, frame, window):
-	"""Cases de la carte des distances visibles dans la fenetre, avec leur valeur en metres."""
 	wx, wy, ww, wh = window
 	h = field.step
 	ny, nx = field.d.shape
-	# fenetre en metres du magasin (l'axe y de l'image est inverse)
 	x0, x1 = wx - MARGIN, wx + ww - MARGIN
 	y0, y1 = frame.height + MARGIN - wy - wh, frame.height + MARGIN - wy
 	rows = range(max(0, int(y0 / h)), min(ny, int(y1 / h) + 1))
@@ -171,10 +168,9 @@ def distance_map_svg(field, frame, window):
 
 
 def distance_focus_svg(field, frame, position):
-	"""Case du client, sa voisine la plus basse et la direction voulue -grad(d)."""
 	h = field.step
 	ny, nx = field.d.shape
-	i, j = min(max(int(position[1] / h), 0), ny - 1), min(max(int(position[0] / h), 0), nx - 1)
+	i, j = field.cell(position)
 	neighbors = [(i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1)
 				 if (di, dj) != (0, 0) and 0 <= i + di < ny and 0 <= j + dj < nx]
 	lowest = min(neighbors, key=lambda c: field.d[c])
@@ -261,8 +257,8 @@ def _line(f, xa, ya, xb, yb, color, thickness, cap="round", dashes=None, opacity
 			f'stroke-width="{thickness}" stroke-linecap="{cap}" opacity="{opacity}"{extra}/>')
 
 
-def _text(f, x, y, content, size, bold=False, color=TEXT):
+def _text(f, x, y, content, size, bold=False):
 	weight = ' font-weight="bold"' if bold else ""
-	return (f'<text x="{f.x(x)}" y="{f.y(y)}" font-size="{size}" fill="{color}" '
+	return (f'<text x="{f.x(x)}" y="{f.y(y)}" font-size="{size}" fill="{TEXT}" '
 			f'text-anchor="middle" dominant-baseline="middle" '
 			f'font-family="Roboto, Arial, sans-serif"{weight}>{escape(content)}</text>')

@@ -37,7 +37,7 @@ STATE_COLORS = {
 }
 
 
-def draw_store(config, ax=None, report=True):
+def draw_store(config, ax=None):
 	if ax is None:
 		_, ax = plt.subplots(figsize=(11, 9))
 
@@ -86,32 +86,24 @@ def draw_store(config, ax=None, report=True):
 	ax.set_xlim(-margin, width + margin)
 	ax.set_ylim(-margin - 1, height + margin)
 	ax.set_aspect("equal")
-	if report:
-		ax.set_xlabel("x (m)", color=TEXT)
-		ax.set_ylabel("y (m)", color=TEXT)
-		ax.tick_params(colors=TEXT, labelsize=9)
-		for side in ("top", "right"):
-			ax.spines[side].set_visible(False)
-		for side in ("left", "bottom"):
-			ax.spines[side].set_color("#b0b8bf")
-	else:
-		ax.set_xticks([])
-		ax.set_yticks([])
-		for spine in ax.spines.values():
-			spine.set_visible(False)
-		_draw_scale(ax, width)
+	ax.set_xlabel("x (m)", color=TEXT)
+	ax.set_ylabel("y (m)", color=TEXT)
+	ax.tick_params(colors=TEXT, labelsize=9)
+	for side in ("top", "right"):
+		ax.spines[side].set_visible(False)
+	for side in ("left", "bottom"):
+		ax.spines[side].set_color("#b0b8bf")
 
 	open_checkouts = sum(c["open"] for c in config.get("checkouts", []))
-	if report:
-		shelf_count = sum(w["type"] == "shelf" for w in config["walls"])
-		ax.set_title(f"Store “{config['name']}”", loc="left", fontsize=15,
-					 fontweight="bold", color=TEXT, pad=22)
-		ax.text(0, 1.015, f"{width:g} m x {height:g} m  ·  {shelf_count} shelves  ·  "
-						  f"{open_checkouts} open checkouts  ·  {len(config['doors'])} doors",
-				transform=ax.transAxes, fontsize=10, color="#6b7780")
+	shelf_count = sum(w["type"] == "shelf" for w in config["walls"])
+	ax.set_title(f"Store “{config['name']}”", loc="left", fontsize=15,
+				 fontweight="bold", color=TEXT, pad=22)
+	ax.text(0, 1.015, f"{width:g} m x {height:g} m  ·  {shelf_count} shelves  ·  "
+					  f"{open_checkouts} open checkouts  ·  {len(config['doors'])} doors",
+			transform=ax.transAxes, fontsize=10, color="#6b7780")
 
 	handles = _legend(config)
-	ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.08 if report else 0.0),
+	ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.08),
 			  ncol=len(handles), frameon=False, fontsize=9, handlelength=1.6,
 			  columnspacing=1.4, labelcolor=TEXT)
 	return ax
@@ -127,16 +119,6 @@ def show_store(config, output=None):
 		plt.close(fig)
 	else:
 		plt.show()
-
-
-def _draw_scale(ax, width):
-	length = 5
-	x0, y0 = width - length, -1.9
-	ax.plot([x0, x0 + length], [y0, y0], color=TEXT, linewidth=2, solid_capstyle="butt")
-	for x in (x0, x0 + length):
-		ax.plot([x, x], [y0 - 0.2, y0 + 0.2], color=TEXT, linewidth=1.5)
-	ax.text(x0 + length / 2, y0 + 0.45, f"{length} m", ha="center", va="bottom",
-			fontsize=8.5, color=TEXT)
 
 
 def _draw_shelf(ax, shelf):
