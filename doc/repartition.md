@@ -33,7 +33,7 @@ Le déplacement est codé. Il reste à finir la vérification.
 | ☒    | 2.1 | Créer les configurations de test : deux clients face à face, passage étroit, caisse avec plusieurs clients  | Clément     | 6 au 7 nov.   |
 | ☒    | 2.2 | Fixer le modèle de contact et la définition de la fréquence et de l'intensité (formule et unité)            | Evan        | 6 au 7 nov.   |
 | ☒    | 2.3 | Coder la correction des positions entre clients, compatible avec les obstacles et les sens uniques          | Evan        | 7 au 10 nov.  |
-| ☐    | 2.4 | Mesurer le chevauchement maximal et les contacts, avec le temps d'attente en caisse                         | Evan        | 10 au 12 nov. |
+| ☒    | 2.4 | Mesurer le chevauchement maximal et les contacts, avec le temps d'attente en caisse                         | Evan        | 10 au 12 nov. |
 | ☐    | 2.5 | Coder la file d'attente : un client servi à la fois, places dans l'allée, avancée d'une place à chaque client servi | Thomas      | 10 au 13 nov. |
 | ☐    | 2.6 | Coder le choix de la caisse selon la distance et la longueur réelle de la file                              | Clément     | 13 au 14 nov. |
 | ☐    | 2.7 | Contrôler que l'ordre de passage respecte l'ordre d'arrivée et consigner les résultats des tests            | Clément     | 14 au 15 nov. |
