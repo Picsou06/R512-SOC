@@ -86,6 +86,7 @@ def HoverZone(name, tag, attributes, hovered):
 
 
 def _followed(model, distance_mode):
+	"""Client suivi par la carte des distances (le seul client, tant qu'il est dans le magasin)."""
 	if not distance_mode or not model.present_clients:
 		return None
 	client = model.present_clients[0]
