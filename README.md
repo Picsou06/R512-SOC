@@ -15,9 +15,14 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 .
 ├── doc/
 │   ├── cdc.md                   # Cahier des charges
-│   └── avis_prof.md             # Notes sur l'avis de l'enseignant
+│   ├── avis_prof.md             # Notes sur l'avis de l'enseignant
+│   ├── repartition.md           # Repartition du travail
+│   ├── verification_m1.md       # Resultats de la verification de M1 (pour le rapport)
+│   ├── configs_test.md          # Description des configurations de test de M2
+│   └── figures/                 # Figures citees dans la documentation
 ├── configs/
-│   └── reference.json           # Configuration de reference
+│   ├── reference.json           # Configuration de reference
+│   └── tests/                   # Cas de test de M2 (face a face, passage etroit, file en caisse)
 ├── simulation/
 │   ├── config.py                # Chargement / validation / duplication des configs JSON
 │   ├── geometry.py              # Obstacles, carte des distances, contraintes de non-penetration
@@ -30,6 +35,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 ├── server.py                    # Lance le site et le redemarre quand le code change
 ├── run.py                       # Export des figures, simulation sans interface
 ├── check_paths.py               # Verification des trajets depuis des positions quelconques
+├── passage_zones.py             # Figures des zones de passage et de croisement des trajets
 └── requirements.txt
 ```
 
@@ -77,6 +83,17 @@ dans un obstacle (code de sortie 1 en cas d'echec) :
 ```powershell
 .venv\Scripts\python check_paths.py configs/reference.json
 ```
+
+Reperer les endroits ou les trajets se croisent (modele M1, clients qui s'ignorent) :
+passages par case, croisements et superpositions entre clients, avec les zones les plus
+fortes affichees dans le terminal :
+
+```powershell
+.venv\Scripts\python passage_zones.py configs/reference.json --output outputs/passage_zones.png
+```
+
+Les configurations de test de M2 sont dans `configs/tests/` (voir
+[`doc/configs_test.md`](doc/configs_test.md)).
 
 ### Creer une variante de configuration
 
