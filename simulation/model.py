@@ -22,6 +22,7 @@ class StoreModel(mesa.Model):
 		self.time_step = self.parameters["time_step"]
 		self.current_time = 0.0
 		self.max_clients = max_clients
+		self.max_overlap = 0.0
 
 		width = self.config["store"]["width"]
 		height = self.config["store"]["height"]
@@ -191,12 +192,17 @@ class StoreModel(mesa.Model):
 	def _separate_clients(self):
 		present = self.present_clients
 		if len(present) < 2:
+			for client in present:
+				client.in_client_contact = False
 			return
 		diameter = 2 * self.behavior["radius"]
 		positions = np.array([c.position for c in present])
 		offsets = positions[:, None] - positions[None, :]
 		distances = np.hypot(offsets[..., 0], offsets[..., 1])
+		touched = set()
 		for i, j in zip(*np.nonzero(np.triu(distances < diameter, k=1))):
+			touched.add(i)
+			touched.add(j)
 			a, b = present[i], present[j]
 			delta = a.position - b.position
 			distance = float(np.linalg.norm(delta))
@@ -204,6 +210,13 @@ class StoreModel(mesa.Model):
 			push = (diameter - distance) / 2
 			a.position = self.obstacles.push_out(a.position + direction * push)[0]
 			b.position = self.obstacles.push_out(b.position - direction * push)[0]
+			residual = diameter - float(np.linalg.norm(a.position - b.position))
+			self.max_overlap = max(self.max_overlap, residual)
+		for index, client in enumerate(present):
+			in_contact = index in touched
+			if in_contact and not client.in_client_contact:
+				client.client_contact_count += 1
+			client.in_client_contact = in_contact
 
 	def simulate(self, max_duration=3600.0):
 		while self.running and self.current_time < max_duration:

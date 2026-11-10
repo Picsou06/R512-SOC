@@ -66,3 +66,32 @@ de M1 (revérifiée sur `check_paths.py` après coup, résultat identique : 0 bl
 | `checkout_queue.json` | 6 clients sur 6 sortent |
 | `reference.json` (300 clients) | 300 sur 300 sortent en 489,9 s simulées |
 | `check_paths.py` sur `reference.json` | Résultats inchangés par rapport à M1 : 0 bloqué, 0 pénétration, 0 contresens |
+
+## Mesure des indicateurs (sous-étape 2.4)
+
+Les trois grandeurs définies ci-dessus sont maintenant mesurées pendant la simulation et
+affichées en fin d'exécution par `run.py --simulate` : le chevauchement maximal restant
+(`model.max_overlap`, mis à jour dans `_separate_clients`), la fréquence des contacts par
+client (`client.client_contact_count`, incrémenté à chaque transition « écarté » →
+« en contact »), et le temps d'attente en caisse (différence entre les horodatages
+`to_checkout` et `paying` du journal de chaque client, déjà enregistré).
+
+| Configuration | Contacts par client | Chevauchement maximal restant | Attente en caisse |
+| --- | --- | --- | --- |
+| `checkout_queue.json` (6 clients, 1 caisse) | moyenne 2,8, max 4 | 0,125 m | moyenne 5,1 s, max 5,6 s |
+| `reference.json` (300 clients) | moyenne 9,0, max 20 | 0,122 m | moyenne 9,9 s, max 14,7 s |
+
+Le chevauchement maximal restant (environ 12 cm, soit un quart du diamètre) n'est pas nul.
+Sur `checkout_queue.json`, il apparaît quand un client double deux clients arrêtés
+(« picking ») près d'un rayon : la correction doit à la fois l'écarter de l'autre client
+et le repousser hors du rayon (`push_out`), et une seule passe par pas de temps ne suffit
+pas toujours à satisfaire les deux dans une allée étroite. Le résidu reste alors entre 0,05
+et 0,12 m pendant environ 0,6 s, le temps qu'il se faufile, puis disparaît. C'est une limite
+connue de la correction la plus simple (une seule passe, cahier des charges M2), pas un
+blocage ni une interpénétration qui grandit.
+
+Le temps d'attente en caisse mesuré ici inclut encore le trajet vers la caisse : sur
+`checkout_queue.json`, il n'y a qu'une seule caisse ouverte, donc plusieurs clients peuvent
+se retrouver à payer en même temps dessus (rien ne l'interdit pour l'instant). La vraie
+file d'attente, où une caisse ne sert qu'un client à la fois, est la tâche 2.5 : cette
+mesure servira alors à vérifier que le temps d'attente correspond bien à l'ordre d'arrivée.

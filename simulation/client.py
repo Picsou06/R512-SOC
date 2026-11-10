@@ -35,6 +35,8 @@ class Client(ContinuousSpaceAgent):
 		self.normal = None
 		self.released = True
 		self.contact_count = 0
+		self.in_client_contact = False
+		self.client_contact_count = 0
 		self.trajectory = [(model.current_time, *self.position, 0.0)]
 		self.log = [(model.current_time, "entered")]
 		self._next_step()
