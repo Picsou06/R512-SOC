@@ -6,6 +6,7 @@ from mesa.experimental.continuous_space import ContinuousSpaceAgent
 RELEASE_DISTANCE = 0.05
 ARRIVAL_DISTANCE = 0.1
 MIN_TURN_SPEED = 0.3
+HEADING_NOISE = math.radians(3.0)
 
 STATES = {
 	"to_product": "Going to product",
@@ -86,7 +87,6 @@ class Client(ContinuousSpaceAgent):
 				self._next_step()
 		elif self._move(dt):
 			self._next_step()
-		self.trajectory.append((self.model.current_time + dt, *self.position, self.speed))
 
 	def _move(self, dt):
 		b = self.model.behavior
@@ -97,7 +97,9 @@ class Client(ContinuousSpaceAgent):
 			return True
 
 		wanted = self.field.direction(self.position)
-		gap = 0.0 if wanted is None else signed_angle(self.heading, wanted)
+		gap = self.model.random.uniform(-HEADING_NOISE, HEADING_NOISE)
+		if wanted is not None:
+			gap += signed_angle(self.heading, wanted)
 		max_turn = b["lateral_acceleration"] / max(self.speed, MIN_TURN_SPEED) * dt
 		self.heading = _rotate(self.heading, max(-max_turn, min(max_turn, gap)))
 

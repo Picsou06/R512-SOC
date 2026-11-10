@@ -2,6 +2,7 @@ import math
 import os
 import threading
 import time
+from pathlib import Path
 
 import solara
 import solara.lab
@@ -40,6 +41,10 @@ def _modification_time(path):
 		return os.path.getmtime(path)
 	except OSError:
 		return None
+
+
+def _config_files():
+	return sorted(str(p).replace(os.sep, "/") for p in Path("configs").rglob("*.json"))
 
 
 def _client_svg(client, frame, radius, transition_ms, full_label):
@@ -320,7 +325,7 @@ def Page():
 				solara.Text("Playback speed")
 				solara.ToggleButtonsSingle(value=speed, values=list(SPEEDS))
 			with solara.Card("Configuration"):
-				solara.InputText("File", value=path, continuous_update=False, dense=True, hide_details=True)
+				solara.Select("File", values=_config_files(), value=path, dense=True)
 				solara.Checkbox(label="Collision boxes", value=collision_boxes)
 				solara.Checkbox(label="Distance map (1 client)", value=distance_mode.value,
 								on_value=switch_distance_mode)

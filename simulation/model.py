@@ -1,4 +1,5 @@
 import mesa
+import numpy as np
 from mesa.experimental.continuous_space import ContinuousSpace
 
 from simulation.client import Client
@@ -175,12 +176,34 @@ class StoreModel(mesa.Model):
 		return [c for c in self.clients if c.state == "exited"]
 
 	def step(self):
-		for client in self.present_clients:
+		active = self.present_clients
+		for client in active:
 			client.step()
-		self.current_time = round(self.current_time + self.time_step, 10)
+		self._separate_clients()
+		time = round(self.current_time + self.time_step, 10)
+		for client in active:
+			client.trajectory.append((time, *client.position, client.speed))
+		self.current_time = time
 		self._admit()
 		if not self.pending and not self.present_clients:
 			self.running = False
+
+	def _separate_clients(self):
+		present = self.present_clients
+		if len(present) < 2:
+			return
+		diameter = 2 * self.behavior["radius"]
+		positions = np.array([c.position for c in present])
+		offsets = positions[:, None] - positions[None, :]
+		distances = np.hypot(offsets[..., 0], offsets[..., 1])
+		for i, j in zip(*np.nonzero(np.triu(distances < diameter, k=1))):
+			a, b = present[i], present[j]
+			delta = a.position - b.position
+			distance = float(np.linalg.norm(delta))
+			direction = delta / distance if distance > 1e-9 else np.array([1.0, 0.0])
+			push = (diameter - distance) / 2
+			a.position = self.obstacles.push_out(a.position + direction * push)[0]
+			b.position = self.obstacles.push_out(b.position - direction * push)[0]
 
 	def simulate(self, max_duration=3600.0):
 		while self.running and self.current_time < max_duration:
