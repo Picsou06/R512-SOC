@@ -68,9 +68,9 @@
 	],
 
 	"resources": [
-		{ "id": "TOILET_PAPER",    "shelf": "shelf_2",  "x": 8.0,  "y": 17.5, "stock": 10 },
-		{ "id": "POKEMON",         "shelf": "shelf_6",  "x": 14.0, "y": 17.5, "stock": 12 },
-		{ "id": "AIR_CONDITIONER", "shelf": "shelf_11", "x": 22.0, "y": 10.5, "stock": 20 }
+		{ "id": "TOILET_PAPER",    "shelf": "shelf_2",  "x": 8.0,  "y": 17.5, "stock": 50 },
+		{ "id": "POKEMON",         "shelf": "shelf_6",  "x": 14.0, "y": 17.5, "stock": 47 },
+		{ "id": "AIR_CONDITIONER", "shelf": "shelf_11", "x": 22.0, "y": 10.5, "stock": 23 }
 	],
 
 	"clients": [],

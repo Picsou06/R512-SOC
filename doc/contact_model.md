@@ -69,6 +69,10 @@ de M1 (revérifiée sur `check_paths.py` après coup, résultat identique : 0 bl
 
 ## Mesure des indicateurs (sous-étape 2.4)
 
+> Les chiffres de cette section datent d'avant la correction par passes répétées décrite
+> plus bas (tâche 3.1), sur une version de la configuration de référence sans vraie file
+> d'attente ni stock limité. Les chiffres à jour sont dans la table de la section suivante.
+
 Les trois grandeurs définies ci-dessus sont maintenant mesurées pendant la simulation et
 affichées en fin d'exécution par `run.py --simulate` : le chevauchement maximal restant
 (`model.max_overlap`, mis à jour dans `_separate_clients`), la fréquence des contacts par
@@ -95,3 +99,78 @@ Le temps d'attente en caisse mesuré ici inclut encore le trajet vers la caisse 
 se retrouver à payer en même temps dessus (rien ne l'interdit pour l'instant). La vraie
 file d'attente, où une caisse ne sert qu'un client à la fois, est la tâche 2.5 : cette
 mesure servira alors à vérifier que le temps d'attente correspond bien à l'ordre d'arrivée.
+
+## Projection sur la configuration admissible (tâche 3.1)
+
+### Problème rencontré : écrasement en foule dense
+
+Sur le parcours complet (configuration de référence, M3), tous les clients vont d'abord
+chercher le même produit (`TOILET_PAPER`), au même endroit du magasin. Beaucoup de clients
+s'y retrouvent donc en contact mutuel en même temps, parfois une dizaine à la fois dans la
+même allée.
+
+La correction de la sous-étape 2.3 ne traite chaque paire en contact qu'une seule fois par
+pas de temps, dans l'ordre où `numpy` renvoie les paires. Quand plus de deux clients sont en
+contact en même temps, corriger une paire peut recréer ou aggraver le chevauchement d'une
+paire déjà corrigée au même pas (un client repoussé vers un deuxième, qui n'a pas encore été
+traité). Avec un pas de temps de 0,1 s et des clients proches de leur vitesse maximale, chacun
+avance d'environ 0,13 m par pas, largement de quoi recréer un chevauchement qu'une seule passe
+vient de corriger. Le résultat observé : un amas de clients qui s'interpénètrent nettement
+plus que les quelques centimètres de résidu attendus en 2.4, le temps que la foule se
+résorbe.
+
+### Solution : approcher la configuration admissible par passes répétées
+
+Idée de Bertrand Maury : après que chaque client a avancé comme il le souhaite, la position
+retenue n'est pas la position voulue mais la configuration la plus proche qui respecte
+toutes les contraintes d'exclusion à la fois (aucun client dans un autre, aucun client dans
+un obstacle), pas seulement les contraintes prises une par une. Calculer exactement cette
+configuration est un problème d'optimisation sous contraintes (une projection sur
+l'ensemble des configurations admissibles), que le cahier des charges ne demande pas de
+détailler ici.
+
+La version implémentée l'approche sans le résoudre exactement : on répète la correction de
+2.3 (écarter chaque paire encore trop proche, puis reprojeter hors des obstacles) jusqu'à ce
+qu'il n'y ait plus aucune paire en chevauchement, au lieu de s'arrêter après une seule passe
+(`StoreModel._separate_clients`, jusqu'à `MAX_SEPARATION_SWEEPS` passes, limite jamais
+atteinte dans nos configurations de test). Chaque passe recalcule les distances à partir des
+positions déjà corrigées par la passe précédente, donc un client repoussé contre un deuxième
+voit cette nouvelle gêne traitée avant la fin du pas de temps. C'est une configuration
+admissible proche de la projection exacte, pas la projection elle-même.
+
+### Vérification
+
+| Configuration | Résultat |
+| --- | --- |
+| `head_on.json` | Les deux clients se contournent et sortent |
+| `narrow_passage.json` | 20 clients sur 20 sortent, chevauchement maximal 0,001 m |
+| `checkout_queue.json` | 6 clients sur 6 sortent, chevauchement maximal 0,001 m |
+| `two_checkouts.json` | 8 clients sur 8 sortent, chevauchement maximal 0,001 m |
+| `reference.json` (300 clients) | 300 sur 300 sortent, chevauchement maximal 0,005 m |
+
+Sur `reference.json`, le chevauchement maximal restant passe de 0,247 m (une seule passe)
+à 0,005 m (passes répétées), et le temps maximal passé dans le magasin par un client de
+382,9 s à 58,7 s : les clients bloqués dans l'amas en sortent beaucoup plus vite. Sur les
+3581 pas de temps où au moins une passe a eu lieu, la limite de `MAX_SEPARATION_SWEEPS`
+(20 passes) n'est atteinte que 2 fois, sans que le chevauchement y dépasse 0,005 m.
+
+### Mesure des indicateurs, configuration de référence actuelle
+
+| Configuration | Contacts par client | Chevauchement maximal restant | Attente en caisse |
+| --- | --- | --- | --- |
+| `checkout_queue.json` (6 clients, 1 caisse) | moyenne 2,3, max 3 | 0,001 m | moyenne 22,1 s, max 39,3 s |
+| `reference.json` (300 clients) | moyenne 7,1, max 22 | 0,005 m | moyenne 13,4 s, max 21,6 s |
+
+Ces chiffres ne se comparent pas directement à ceux de la section précédente : la
+configuration de référence a maintenant la vraie file d'attente (2.5 à 2.7) et le stock
+limité (M3), qui changent aussi la fréquence des contacts et le temps d'attente, pas
+seulement la correction de position.
+
+### Limite restante
+
+La vitesse enregistrée dans la trajectoire de chaque client (`client.speed`) reste la
+vitesse voulue avant projection, pas la vitesse effective après correction de position.
+Dans le modèle de Maury, c'est la vitesse projetée qui devrait servir de vitesse réelle du
+client. Ça n'a pas d'effet sur les indicateurs de contact mesurés ici, mais ça comptera pour
+le diagramme fondamental (vitesse en fonction de la densité, tâche V.4) : à traiter à ce
+moment-là.

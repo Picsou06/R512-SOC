@@ -15,6 +15,8 @@ GOAL_SAMPLING = 0.1
 QUEUE_GAP = 0.1
 JOIN_MARGIN = 0.3
 SEED = 1
+MAX_SEPARATION_SWEEPS = 20
+SEPARATION_TOLERANCE = 0.001
 
 
 class StoreModel(mesa.Model):
@@ -261,27 +263,40 @@ class StoreModel(mesa.Model):
 			self.running = False
 
 	def _separate_clients(self):
+		"""Projects the positions reached after `Client.step` onto the admissible configuration
+		where no two clients overlap and none penetrates an obstacle, following Maury's idea:
+		repeatedly push apart every overlapping pair, respecting obstacles each time, until all
+		exclusion constraints are satisfied at once (approximating the closest admissible
+		configuration to the one each client wanted on its own)."""
 		present = self.present_clients
 		if len(present) < 2:
 			for client in present:
 				client.in_client_contact = False
 			return
 		diameter = 2 * self.behavior["radius"]
+		touched = set()
+		for _ in range(MAX_SEPARATION_SWEEPS):
+			positions = np.array([c.position for c in present])
+			offsets = positions[:, None] - positions[None, :]
+			distances = np.hypot(offsets[..., 0], offsets[..., 1])
+			pairs = list(zip(*np.nonzero(np.triu(distances < diameter - SEPARATION_TOLERANCE, k=1))))
+			if not pairs:
+				break
+			for i, j in pairs:
+				touched.add(i)
+				touched.add(j)
+				a, b = present[i], present[j]
+				delta = a.position - b.position
+				distance = float(np.linalg.norm(delta))
+				direction = delta / distance if distance > 1e-9 else np.array([1.0, 0.0])
+				push = (diameter - distance) / 2
+				a.position = self.obstacles.push_out(a.position + direction * push)[0]
+				b.position = self.obstacles.push_out(b.position - direction * push)[0]
 		positions = np.array([c.position for c in present])
 		offsets = positions[:, None] - positions[None, :]
 		distances = np.hypot(offsets[..., 0], offsets[..., 1])
-		touched = set()
 		for i, j in zip(*np.nonzero(np.triu(distances < diameter, k=1))):
-			touched.add(i)
-			touched.add(j)
-			a, b = present[i], present[j]
-			delta = a.position - b.position
-			distance = float(np.linalg.norm(delta))
-			direction = delta / distance if distance > 1e-9 else np.array([1.0, 0.0])
-			push = (diameter - distance) / 2
-			a.position = self.obstacles.push_out(a.position + direction * push)[0]
-			b.position = self.obstacles.push_out(b.position - direction * push)[0]
-			residual = diameter - float(np.linalg.norm(a.position - b.position))
+			residual = diameter - float(distances[i, j])
 			self.max_overlap = max(self.max_overlap, residual)
 		for index, client in enumerate(present):
 			in_contact = index in touched

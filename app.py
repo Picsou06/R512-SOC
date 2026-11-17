@@ -36,6 +36,10 @@ def _collision_boxes(model):
 	return bool(model and model.config.get("display", {}).get("collision_boxes", False))
 
 
+def _labels(model):
+	return bool(model and model.config.get("display", {}).get("labels", True))
+
+
 def _modification_time(path):
 	try:
 		return os.path.getmtime(path)
@@ -47,17 +51,11 @@ def _config_files():
 	return sorted(str(p).replace(os.sep, "/") for p in Path("configs").rglob("*.json"))
 
 
-def _client_svg(client, frame, radius, transition_ms, full_label):
+def _client_svg(client, frame, radius, transition_ms, full_label, labels):
 	v = solara.v
 	x, y = frame.x(client.position[0]), frame.y(client.position[1])
 	color = STATE_COLORS[client.state]
 	heading_x, heading_y = client.heading * radius * 0.85
-	if client.state in ("picking", "paying"):
-		detail = f"{client.wait:.0f} s"
-	else:
-		detail = f"{client.speed:.1f} m/s"
-	if full_label:
-		detail = f"{client.label} · {detail}"
 	children = [
 		v.Html(tag="circle", attributes={"r": radius, "fill": color,
 										 "stroke": "#ff1744" if client.in_contact else "white",
@@ -65,15 +63,23 @@ def _client_svg(client, frame, radius, transition_ms, full_label):
 		v.Html(tag="line", attributes={"x1": 0, "y1": 0, "x2": round(heading_x, 3),
 									   "y2": round(-heading_y, 3), "stroke": "white",
 									   "stroke-width": 0.09, "stroke-linecap": "round"}),
-		v.Html(tag="text", attributes={"y": -radius - 0.3,
-									   "font-size": 0.45 if full_label else 0.36,
-									   "text-anchor": "middle", "fill": color,
-									   "stroke": "white", "stroke-width": 0.12,
-									   "paint-order": "stroke",
-									   "font-family": "Roboto, Arial, sans-serif",
-									   "font-weight": "bold"},
-			   children=[detail]),
 	]
+	if labels:
+		if client.state in ("picking", "paying"):
+			detail = f"{client.wait:.0f} s"
+		else:
+			detail = f"{client.speed:.1f} m/s"
+		if full_label:
+			detail = f"{client.label} · {detail}"
+		children.append(
+			v.Html(tag="text", attributes={"y": -radius - 0.3,
+										   "font-size": 0.45 if full_label else 0.36,
+										   "text-anchor": "middle", "fill": color,
+										   "stroke": "white", "stroke-width": 0.12,
+										   "paint-order": "stroke",
+										   "font-family": "Roboto, Arial, sans-serif",
+										   "font-weight": "bold"},
+				   children=[detail]))
 	return v.Html(
 		tag="g",
 		style_=f"transform: translate({x}px, {y}px); pointer-events: none; "
@@ -99,7 +105,7 @@ def _followed(model, distance_mode):
 
 
 @solara.component
-def StoreView(model, transition_ms, collision_boxes, distance_mode):
+def StoreView(model, transition_ms, collision_boxes, distance_mode, labels):
 	update_counter.get()
 	frame = solara.use_memo(lambda: Frame(model.config), dependencies=[id(model)])
 	hovered = solara.use_reactive(None)
@@ -124,7 +130,7 @@ def StoreView(model, transition_ms, collision_boxes, distance_mode):
 
 	few = model.total_clients <= MANY_CLIENTS
 	radius = model.behavior["radius"]
-	moving = [_client_svg(client, frame, radius, transition_ms, few).key(client.identifier)
+	moving = [_client_svg(client, frame, radius, transition_ms, few, labels).key(client.identifier)
 			  for client in model.present_clients]
 	zones = [HoverZone(name, tag, attributes, hovered).key(name)
 			 for name, (tag, attributes, _) in targets.items()]
@@ -222,6 +228,7 @@ def Page():
 	model = solara.use_reactive(initial)
 	path = solara.use_reactive(DEFAULT_CONFIG)
 	collision_boxes = solara.use_reactive(_collision_boxes(initial))
+	labels = solara.use_reactive(_labels(initial))
 	distance_mode = solara.use_reactive(False)
 	playing = solara.use_reactive(False)
 	speed = solara.use_reactive("x1")
@@ -238,6 +245,7 @@ def Page():
 		if new is not None:
 			model.set(new)
 			collision_boxes.set(_collision_boxes(new))
+			labels.set(_labels(new))
 
 	def watch_config():
 		stop = threading.Event()
@@ -327,6 +335,7 @@ def Page():
 			with solara.Card("Configuration"):
 				solara.Select("File", values=_config_files(), value=path, dense=True)
 				solara.Checkbox(label="Collision boxes", value=collision_boxes)
+				solara.Checkbox(label="Labels", value=labels)
 				solara.Checkbox(label="Distance map (1 client)", value=distance_mode.value,
 								on_value=switch_distance_mode)
 				with solara.CardActions():
@@ -342,4 +351,4 @@ def Page():
 				solara.Error(f"Invalid configuration, the last valid store is still shown. "
 							 f"{error.value}")
 			if model.value is not None:
-				StoreView(model.value, transition_ms, collision_boxes.value, distance_mode.value)
+				StoreView(model.value, transition_ms, collision_boxes.value, distance_mode.value, labels.value)
