@@ -1,8 +1,10 @@
+import math
+
 import mesa
 import numpy as np
 from mesa.experimental.continuous_space import ContinuousSpace
 
-from simulation.client import Client
+from simulation.client import ARRIVAL_DISTANCE, Client
 from simulation.config import (DIRECTIONS, ENTRANCE_TYPES, EXIT_TYPES, load_config, obstacles_of,
 							   one_way_zones, rectangle)
 from simulation.geometry import DistanceField, Obstacles
@@ -10,6 +12,8 @@ from simulation.geometry import DistanceField, Obstacles
 OFFSET = 0.05
 PRODUCT_SPREAD = 0.4
 GOAL_SAMPLING = 0.1
+QUEUE_GAP = 0.1
+JOIN_MARGIN = 0.3
 SEED = 1
 
 
@@ -35,6 +39,9 @@ class StoreModel(mesa.Model):
 
 		self.stocks = {r["id"]: r["stock"] for r in self.config["resources"]}
 		self.load = {c["id"]: 0 for c in self.config.get("checkouts", []) if c["open"]}
+		self.queues = {checkout_id: [] for checkout_id in self.load}
+		self.served = {checkout_id: [] for checkout_id in self.load}
+		self.queue_spacing = 2 * self.behavior["radius"] + QUEUE_GAP
 		self.fields = {}
 		self.clients = []
 		self.pending = self._arrivals()
@@ -146,6 +153,14 @@ class StoreModel(mesa.Model):
 		return self._field(("checkout", checkout["id"]),
 						   lambda: self._segment(start, (checkout["x"], y)))
 
+	def pushed_past_checkout(self, checkout_id, client):
+		"""True when a client of the line has been pushed past the payment spot by the ones
+		behind it. The lane is one way, so it cannot walk back up: it pays where it is."""
+		checkout = next(c for c in self.config["checkouts"] if c["id"] == checkout_id)
+		point = np.array(self._checkout_point(checkout))
+		return (math.isinf(client.field.value(client.position))
+				and np.linalg.norm(client.position - point) <= checkout["height"])
+
 	def exit_field(self):
 		return self._field(("exit",), lambda: [p for door in self._exits() for p in self._door_goal(door)])
 
@@ -165,7 +180,44 @@ class StoreModel(mesa.Model):
 		self.load[checkout_id] += 1
 		return checkout_id, field
 
-	def release_checkout(self, checkout_id):
+	def reaches_queue(self, checkout_id, client):
+		"""True when a client walking to the checkout has reached the end of its line.
+
+		The line has no fixed places: each client stands `queue_spacing` behind the one in
+		front of it, along the path that leads to the checkout. It forms in the checkout
+		lane and goes back up into the store when it is longer than the lane."""
+		queue = self.queues[checkout_id]
+		field = client.field
+		if not queue:
+			return field.value(client.position) <= ARRIVAL_DISTANCE
+		last = queue[-1]
+		close = np.linalg.norm(client.position - last.position) <= self.queue_spacing + JOIN_MARGIN
+		return close or field.value(client.position) <= field.value(last.position) + self.queue_spacing
+
+	def gap_in_queue(self, checkout_id, client):
+		"""Free distance in front of a client in a line, None for the first one (only the
+		first one can reach the payment spot)."""
+		queue = self.queues[checkout_id]
+		rank = queue.index(client)
+		if rank == 0:
+			return None
+		if math.isinf(client.field.value(client.position)):
+			return 0.0  # pushed past the payment spot: waits there for its turn
+		ahead = queue[rank - 1]
+		# The client in front may be reached by another path: the gap is also counted along
+		# the path, so that no one walks past it.
+		along = client.field.value(client.position) - client.field.value(ahead.position)
+		straight = float(np.linalg.norm(client.position - ahead.position))
+		return max(0.0, min(along, straight) - self.queue_spacing)
+
+	def join_queue(self, checkout_id, client):
+		self.queues[checkout_id].append(client)
+
+	def release_checkout(self, checkout_id, client):
+		queue = self.queues[checkout_id]
+		assert queue and queue[0] is client, "only the first client of the line can pay"
+		queue.pop(0)
+		self.served[checkout_id].append(client.identifier)
 		self.load[checkout_id] -= 1
 
 	@property

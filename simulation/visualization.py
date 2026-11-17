@@ -32,6 +32,7 @@ STATE_COLORS = {
 	"to_product": "#e4572e",
 	"picking": "#f2b134",
 	"to_checkout": "#6a4c93",
+	"queuing": "#c2549d",
 	"paying": "#2b7bba",
 	"to_exit": "#3aa66a",
 }

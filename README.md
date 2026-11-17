@@ -118,14 +118,14 @@ en francais.
 Le projet avance par modeles successifs, du plus simple au plus complet (planning
 detaille dans [`doc/cdc.md`](doc/cdc.md)).
 
-| Mois | Semaines | Modele | Phase | Contenu                                                                                 | Statut  |
-| ---- | -------- | ------ | ----- | --------------------------------------------------------------------------------------- | ------- |
-| 1    | 1        | M0     | 1     | Le magasin seul, sans client : chargement du JSON, affichage du magasin                 | Fait    |
-| 1    | 2 - 4    | M1     | 2     | Plusieurs clients qui s'ignorent et vont vers un objectif en contournant murs et rayons | Fait    |
-| 2    | 5 - 6    | M2     | 3     | Les contacts entre clients et la file d'attente aux caisses                             | A venir |
-| 2    | 7        | M3     | 4     | La ressource limitee, l'entree progressive, les caisses et la sortie                    | A venir |
-| 2    | 8        | M4     | 5     | Les indicateurs et la comparaison de configurations                                     | A venir |
-| 3    | 9        |        |       | La validation chiffree du modele                                                        | A venir |
+| Mois | Semaines | Modele | Phase | Contenu                                                                                     | Statut  |
+| ---- | -------- | ------ | ----- | ------------------------------------------------------------------------------------------- | ------- |
+| 1    | 1        | M0     | 1     | Le magasin seul, sans client : chargement du JSON, affichage du magasin                     | Fait    |
+| 1    | 2 - 4    | M1     | 2     | Plusieurs clients qui s'ignorent et vont vers un objectif en contournant murs et rayons     | Fait    |
+| 2    | 5 - 6    | M2     | 3     | Les contacts entre clients et la file d'attente aux caisses                                 | A venir |
+| 2    | 7        | M3     | 4     | La ressource limitee, l'entree progressive, les caisses et la sortie                        | A venir |
+| 2    | 8        | M4     | 5     | Les indicateurs et la comparaison de configurations                                         | A venir |
+| 3    | 9        |        |       | La validation chiffree du modele                                                            | A venir |
 | 3    | 10       | M5     | 6     | Les evolutions : rythme d'entree, placement des produits, nombre de caisses, regles d'acces | A venir |
-| 3    | 11 - 12  |        |       | Redaction du rapport, rendu du rapport et du code le 5 janvier 2027                     | A venir |
-|      |          |        |       | Transparents (18 janvier 2027) et soutenance (19 janvier 2027)                          | A venir |
+| 3    | 11 - 12  |        |       | Redaction du rapport, rendu du rapport et du code le 5 janvier 2027                         | A venir |
+|      |          |        |       | Transparents (18 janvier 2027) et soutenance (19 janvier 2027)                              | A venir |
