@@ -39,6 +39,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 ├── check_paths.py               # Verification des trajets depuis des positions quelconques
 ├── passage_zones.py             # Figures des zones de passage et de croisement des trajets
 ├── check_queues.py              # Verification des files aux caisses (ordre de passage, un client a la fois)
+├── check_invariants.py          # Controles automatiques du scenario complet (stock, caisses, sortie)
 └── requirements.txt
 ```
 
@@ -101,6 +102,15 @@ d'echec, `--seeds` pour repeter avec plusieurs graines) :
 
 ```powershell
 .venv\Scripts\python check_queues.py configs/tests/checkout_queue.json --verbose
+```
+
+Controler les invariants du scenario complet a chaque pas de temps : stock jamais negatif
+(et stock restant + articles pris = stock de depart), une seule caisse par client, un seul
+client servi par caisse, aucun client perdu, et tous les clients sortis a la fin (code de
+sortie 1 en cas d'echec) :
+
+```powershell
+.venv\Scripts\python check_invariants.py configs/reference.json configs/tests/*.json --seeds 3
 ```
 
 Les configurations de test de M2 sont dans `configs/tests/` (voir

@@ -32,6 +32,7 @@ class Client(ContinuousSpaceAgent):
 		self.field = None
 		self.wait = 0.0
 		self.items = 0
+		self.basket = []
 		self.checkout = None
 		self.normal = None
 		self.released = True
@@ -61,6 +62,7 @@ class Client(ContinuousSpaceAgent):
 			return self._next_step()
 		if step["state"] == "picking":
 			self.items += 1
+			self.basket.append(step["product"])
 		if step["state"] == "to_checkout":
 			if not self.items:
 				self.steps = [s for s in self.steps if s["state"] != "paying"]
