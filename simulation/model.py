@@ -38,9 +38,11 @@ class StoreModel(mesa.Model):
 								   self.parameters["ball_radius"], directions)
 
 		self.stocks = {r["id"]: r["stock"] for r in self.config["resources"]}
-		self.load = {c["id"]: 0 for c in self.config.get("checkouts", []) if c["open"]}
-		self.queues = {checkout_id: [] for checkout_id in self.load}
-		self.served = {checkout_id: [] for checkout_id in self.load}
+		open_checkouts = [c["id"] for c in self.config.get("checkouts", []) if c["open"]]
+		self.heading = {c: [] for c in open_checkouts}
+		self.queues = {c: [] for c in open_checkouts}
+		self.served = {c: [] for c in open_checkouts}
+		self.checkout_log = []
 		self.queue_spacing = 2 * self.behavior["radius"] + QUEUE_GAP
 		self.fields = {}
 		self.clients = []
@@ -164,21 +166,33 @@ class StoreModel(mesa.Model):
 	def exit_field(self):
 		return self._field(("exit",), lambda: [p for door in self._exits() for p in self._door_goal(door)])
 
-	def choose_checkout(self, start):
-		penalty = self.payment_duration(1) * self.behavior["max_speed"]
+	def remaining_payment(self, client):
+		if client.state == "paying":
+			return max(0.0, client.wait)
+		return self.payment_duration(client.items)
+
+	def queue_wait(self, checkout_id):
+		waiting = self.queues[checkout_id] + self.heading[checkout_id]
+		return sum(self.remaining_payment(c) for c in waiting)
+
+	def checkout_cost(self, checkout, start):
+		there = self.checkout_field(checkout).value(start)
+		back = self.exit_field().value(self._checkout_point(checkout))
+		walk = (there + back) / self.behavior["max_speed"]
+		return walk + self.queue_wait(checkout["id"])
+
+	def choose_checkout(self, client):
 		best = None
 		for checkout in self.config.get("checkouts", []):
 			if not checkout["open"]:
 				continue
-			field = self.checkout_field(checkout)
-			there = field.value(start)
-			back = self.exit_field().value(self._checkout_point(checkout))
-			cost = there + back + penalty * self.load[checkout["id"]]
+			cost = self.checkout_cost(checkout, client.position)
 			if best is None or cost < best[0]:
-				best = (cost, checkout["id"], field)
-		_, checkout_id, field = best
-		self.load[checkout_id] += 1
-		return checkout_id, field
+				best = (cost, checkout)
+		checkout = best[1]
+		self.heading[checkout["id"]].append(client)
+		self.checkout_log.append((self.current_time, checkout["id"], client.identifier, "chosen"))
+		return checkout["id"], self.checkout_field(checkout)
 
 	def reaches_queue(self, checkout_id, client):
 		"""True when a client walking to the checkout has reached the end of its line.
@@ -211,14 +225,19 @@ class StoreModel(mesa.Model):
 		return max(0.0, min(along, straight) - self.queue_spacing)
 
 	def join_queue(self, checkout_id, client):
+		self.heading[checkout_id].remove(client)
 		self.queues[checkout_id].append(client)
+		self.checkout_log.append((self.current_time, checkout_id, client.identifier, "joined"))
+
+	def start_service(self, checkout_id, client):
+		self.checkout_log.append((self.current_time, checkout_id, client.identifier, "served"))
 
 	def release_checkout(self, checkout_id, client):
 		queue = self.queues[checkout_id]
 		assert queue and queue[0] is client, "only the first client of the line can pay"
 		queue.pop(0)
 		self.served[checkout_id].append(client.identifier)
-		self.load[checkout_id] -= 1
+		self.checkout_log.append((self.current_time, checkout_id, client.identifier, "left"))
 
 	@property
 	def present_clients(self):

@@ -65,9 +65,10 @@ class Client(ContinuousSpaceAgent):
 			if not self.items:
 				self.steps = [s for s in self.steps if s["state"] != "paying"]
 				return self._next_step()
-			self.checkout, field = self.model.choose_checkout(self.position)
+			self.checkout, field = self.model.choose_checkout(self)
 			step = {**step, "field": field}
 		elif step["state"] == "paying":
+			self.model.start_service(self.checkout, self)
 			step = {**step, "duration": self.model.payment_duration(self.items)}
 		elif step["state"] == "to_exit":
 			step = {**step, "field": self.model.exit_field()}

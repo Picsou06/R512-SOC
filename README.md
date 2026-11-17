@@ -19,10 +19,12 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 │   ├── repartition.md           # Repartition du travail
 │   ├── verification_m1.md       # Resultats de la verification de M1 (pour le rapport)
 │   ├── configs_test.md          # Description des configurations de test de M2
+│   ├── contact_model.md         # Modele de contact et correction des positions (M2)
+│   ├── files_caisses.md         # Choix de la caisse et controle des files (M2)
 │   └── figures/                 # Figures citees dans la documentation
 ├── configs/
 │   ├── reference.json           # Configuration de reference
-│   └── tests/                   # Cas de test de M2 (face a face, passage etroit, file en caisse)
+│   └── tests/                   # Cas de test de M2 (face a face, passage etroit, file en caisse, deux caisses)
 ├── simulation/
 │   ├── config.py                # Chargement / validation / duplication des configs JSON
 │   ├── geometry.py              # Obstacles, carte des distances, contraintes de non-penetration
@@ -36,6 +38,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 ├── run.py                       # Export des figures, simulation sans interface
 ├── check_paths.py               # Verification des trajets depuis des positions quelconques
 ├── passage_zones.py             # Figures des zones de passage et de croisement des trajets
+├── check_queues.py              # Verification des files aux caisses (ordre de passage, un client a la fois)
 └── requirements.txt
 ```
 
@@ -90,6 +93,14 @@ fortes affichees dans le terminal :
 
 ```powershell
 .venv\Scripts\python passage_zones.py configs/reference.json --output outputs/passage_zones.png
+```
+
+Verifier les files aux caisses : un seul client servi a la fois par caisse, ordre de
+passage = ordre d'arrivee dans la file, une seule file par client (code de sortie 1 en cas
+d'echec, `--seeds` pour repeter avec plusieurs graines) :
+
+```powershell
+.venv\Scripts\python check_queues.py configs/tests/checkout_queue.json --verbose
 ```
 
 Les configurations de test de M2 sont dans `configs/tests/` (voir

@@ -1,6 +1,6 @@
 # Configurations de test de M2
 
-Trois petits magasins, dans `configs/tests/`, pour vérifier le modèle M2 (contacts et file
+Quatre petits magasins, dans `configs/tests/`, pour vérifier le modèle M2 (contacts et file
 d'attente) sur des cas simples où l'on sait ce qui doit se passer. Ils utilisent les mêmes
 paramètres de client que la référence (rayon 0,25 m, vitesse maximale 1,3 m/s, pas de
 temps 0,1 s).
@@ -12,7 +12,7 @@ Pour les lancer :
 .venv\Scripts\python check_paths.py configs/tests/head_on.json
 ```
 
-Les trois configurations passent `check_paths.py` (0 client bloqué, 0 pénétration,
+Les quatre configurations passent `check_paths.py` (0 client bloqué, 0 pénétration,
 0 contresens) et tous les clients sortent.
 
 ## Deux clients face à face : `head_on.json`
@@ -69,3 +69,19 @@ l'autre dans l'allée de la caisse et avancent d'une place à chaque client serv
 passage doit être `client_1` à `client_6`. Le dernier client arrive environ 5 s après le
 premier et doit attendre 5 paiements de 7 s : il attend donc environ 30 s avant son tour. C'est la configuration à utiliser pour les sous-étapes 2.5
 et 2.7.
+
+## Deux caisses : `two_checkouts.json`
+
+![two_checkouts](figures/two_checkouts.png)
+
+- Même magasin que `checkout_queue.json`, avec une deuxième caisse ouverte (`checkout_2`)
+  et son allée à sens unique juste à droite de la première. Le mur des caisses est raccourci
+  d'autant.
+- Le produit est déplacé à x = 4,5 m, au-dessus de la caisse 1 : la caisse 1 est plus près
+  du produit, la caisse 2 plus près de la sortie. Quand les files sont vides, la caisse 2
+  reste un peu plus avantageuse (9,2 s de marche contre 10,7 s).
+- 8 clients, un par seconde (`client_1` à `client_8`, arrivées de 0 à 7 s).
+
+**Attendu en M2 :** le premier client prend la caisse 2, puis les clients se répartissent
+entre les deux caisses dès que l'attente à la caisse 2 dépasse l'écart de marche. C'est la
+configuration de la sous-étape 2.6 (résultats dans [`files_caisses.md`](files_caisses.md)).
