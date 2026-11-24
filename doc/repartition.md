@@ -57,7 +57,7 @@ Entrée progressive, stock, caisses et sortie sont déjà codés. Il reste à le
 | ---- | --- | ----------------------------------------------------------------------------------------- | ----------- | ------------- |
 | ☐    | 4.1 | Coder le script qui génère les variantes de configuration : largeur des allées, position de la ressource, nombre de passages | Clément     | 23 au 24 nov. |
 | ☐    | 4.2 | Collecter les indicateurs au cours du temps : contacts, densité, débit, clients présents  | Thomas      | 23 au 25 nov. |
-| ☐    | 4.3 | Coder les simulations répétées avec plusieurs graines et l'agrégation des résultats       | Evan        | 23 au 25 nov. |
+| ☒    | 4.3 | Coder les simulations répétées avec plusieurs graines et l'agrégation des résultats       | Evan        | 23 au 25 nov. |
 | ☐    | 4.4 | Coder les courbes d'indicateurs, avec axes, unités, légende et paramètres                 | Thomas      | 25 au 27 nov. |
 | ☐    | 4.5 | Coder les instantanés du magasin à des instants choisis                                   | Clément     | 25 au 26 nov. |
 | ☐    | 4.6 | Lancer toutes les variantes et ranger les résultats et les figures                        | Clément     | 27 au 28 nov. |
@@ -79,13 +79,38 @@ Entrée progressive, stock, caisses et sortie sont déjà codés. Il reste à le
 Selon le temps restant, dans l'ordre du cahier des charges. Chaque ajout reprend la
 comparaison de M4.
 
+### Algorithme de déplacement (priorité, ajouté le 24 novembre)
+
+Décidé en priorité sur le reste de M5 : le modèle actuel n'évite les autres clients que
+par la correction de position de M2, après coup, et tous les clients ont la même taille
+et la même vitesse. Trois évolutions de l'algorithme de déplacement lui-même, pas d'un
+simple paramètre de configuration :
+
+- **Évitement anticipé** : le client ajuste sa direction en amont quand un autre client
+  s'approche sur sa trajectoire, au lieu d'attendre la correction de position après le pas
+  de temps pour réagir au contact.
+- **Profils de client** : chaque client a un profil tiré au hasard à l'entrée (par
+  exemple pressé, normal, prudent), avec sa propre taille (rayon), sa propre vitesse
+  maximale et sa propre accélération, au lieu d'une taille et d'une vitesse uniques
+  partagées par tous.
+- **Recherche d'un autre chemin** : un client dont le chemin le plus court est trop
+  encombré (file longue, zone trop dense) en choisit un autre plutôt que d'y rester
+  bloqué.
+
+Ces trois points reviennent sur la simplification notée dans `contact_model.md`
+(« tous les clients ont la même taille et la même vitesse ») : à signaler dans le rapport
+le jour où elle ne tient plus.
+
 | Fait | N°  | Sous-étape                                                                                | Responsable | Dates         |
 | ---- | --- | ----------------------------------------------------------------------------------------- | ----------- | ------------- |
-| ☐    | 5.1 | Rythme d'entrée : varier l'intervalle jusqu'à l'ouverture d'un coup                       | Thomas      | 7 au 8 déc.   |
-| ☐    | 5.2 | Placement des produits : produits regroupés ou dispersés, liste propre à chaque client    | Evan        | 8 au 10 déc.  |
-| ☐    | 5.3 | Nombre de caisses : étendre le script de variantes aux caisses ouvertes et relever les résultats | Clément     | 10 au 11 déc. |
-| ☐    | 5.4 | Règles d'accès : coder le nombre maximum de clients et étudier le sens de circulation     | Thomas      | 10 au 13 déc. |
-| ☐    | 5.5 | Interpréter l'ensemble des évolutions par rapport à la référence                          | Evan        | 12 au 13 déc. |
+| ☐    | 5.1 | Évitement anticipé : le client dévie avant le contact quand un autre client est sur sa trajectoire | Evan        | 7 au 8 déc.   |
+| ☐    | 5.2 | Profils de client : taille, vitesse et accélération tirées au hasard selon un profil (pressé, normal, prudent) | Evan        | 8 au 9 déc.   |
+| ☐    | 5.3 | Recherche d'un autre chemin quand le sien est trop encombré, au lieu d'y rester bloqué    | Evan        | 9 au 11 déc.  |
+| ☐    | 5.4 | Rythme d'entrée : varier l'intervalle jusqu'à l'ouverture d'un coup                       | Thomas      | 7 au 8 déc.   |
+| ☐    | 5.5 | Placement des produits : produits regroupés ou dispersés, liste propre à chaque client    | Evan        | 11 au 12 déc. |
+| ☐    | 5.6 | Nombre de caisses : étendre le script de variantes aux caisses ouvertes et relever les résultats | Clément     | 10 au 11 déc. |
+| ☐    | 5.7 | Règles d'accès : coder le nombre maximum de clients et étudier le sens de circulation     | Thomas      | 10 au 13 déc. |
+| ☐    | 5.8 | Interpréter l'ensemble des évolutions par rapport à la référence                          | Evan        | 12 au 13 déc. |
 
 ## Rapport (en continu, puis 14 au 29 décembre)
 
