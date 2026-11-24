@@ -97,7 +97,12 @@ class Client(ContinuousSpaceAgent):
 				self.state = "queuing"
 				self.log.append((self.model.current_time, self.state))
 			else:
-				self._move(dt)
+				tail = self.model.queue_tail(self.checkout, self)
+				if tail is None:
+					self._move(dt)
+				else:
+					free = float(np.linalg.norm(tail - self.position)) - self.model.queue_spacing
+					self._move(dt, max(0.0, free), toward=tail)
 		elif self.state == "queuing":
 			gap = self.model.gap_in_queue(self.checkout, self)
 			if gap is None and self.model.pushed_past_checkout(self.checkout, self):
@@ -108,10 +113,12 @@ class Client(ContinuousSpaceAgent):
 		elif self._move(dt):
 			self._next_step()
 
-	def _move(self, dt, gap=None):
+	def _move(self, dt, gap=None, toward=None):
 		"""Moves along the field and returns True once at its goal. `gap`, when given, is the
 		free distance in front of a client waiting in a line: it stops there and never counts
-		as arrived, since only the first one of the line goes to the payment spot."""
+		as arrived, since only the first one of the line goes to the payment spot. `toward`,
+		when given, is a point to walk to in a straight line instead of following the field
+		(the end of a line, with `gap` the distance left to it)."""
 		b = self.model.behavior
 		obstacles = self.model.obstacles
 		remaining = self.field.value(self.position)
@@ -121,8 +128,11 @@ class Client(ContinuousSpaceAgent):
 			self.speed = 0.0
 			return gap is None
 
-		wanted = self.field.direction(self.position)
-		gap = self.model.random.uniform(-HEADING_NOISE, HEADING_NOISE)
+		if toward is None:
+			wanted = self.field.direction(self.position)
+		else:
+			wanted = (toward - self.position) / max(float(np.linalg.norm(toward - self.position)), 1e-9)
+		gap =self.model.random.uniform(-HEADING_NOISE, HEADING_NOISE)
 		if wanted is not None:
 			gap += signed_angle(self.heading, wanted)
 		max_turn = b["lateral_acceleration"] / max(self.speed, MIN_TURN_SPEED) * dt

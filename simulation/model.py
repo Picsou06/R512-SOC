@@ -7,7 +7,7 @@ from mesa.experimental.continuous_space import ContinuousSpace
 from simulation.client import ARRIVAL_DISTANCE, Client
 from simulation.config import (DIRECTIONS, ENTRANCE_TYPES, EXIT_TYPES, load_config, obstacles_of,
 							   one_way_zones, rectangle)
-from simulation.geometry import DistanceField, Obstacles
+from simulation.geometry import GRID_STEP, DistanceField, Obstacles
 
 OFFSET = 0.05
 PRODUCT_SPREAD = 0.4
@@ -203,12 +203,40 @@ class StoreModel(mesa.Model):
 		front of it, along the path that leads to the checkout. It forms in the checkout
 		lane and goes back up into the store when it is longer than the lane."""
 		queue = self.queues[checkout_id]
-		field = client.field
 		if not queue:
-			return field.value(client.position) <= ARRIVAL_DISTANCE
+			return client.field.value(client.position) <= ARRIVAL_DISTANCE
+		# Only right behind the last one: a client that comes from the side of a long line
+		# must first walk to its end (see `queue_tail`), instead of stopping where it is.
 		last = queue[-1]
-		close = np.linalg.norm(client.position - last.position) <= self.queue_spacing + JOIN_MARGIN
-		return close or field.value(client.position) <= field.value(last.position) + self.queue_spacing
+		return np.linalg.norm(client.position - last.position) <= self.queue_spacing + JOIN_MARGIN
+
+	def queue_tail(self, checkout_id, client):
+		"""Position of the last client of the line when a client walking to the checkout must
+		go straight to it, None when it just follows the path to the checkout.
+
+		The path leads to the end of the line as long as the client is behind it. A client
+		that is already closer to the checkout than the last one (it came from the side of a
+		line that goes back up into the store) would walk along the line: it goes to the
+		last one in a straight line instead, as soon as it can see it."""
+		queue = self.queues[checkout_id]
+		if not queue:
+			return None
+		last = queue[-1]
+		if client.field.value(client.position) >= client.field.value(last.position) + self.queue_spacing:
+			return None
+		return last.position if self.in_sight(client.position, last.position) else None
+
+	def in_sight(self, a, b):
+		"""True when a client can walk in a straight line from a to b without hitting an
+		obstacle (checked on the grid of free cells of the distance fields)."""
+		free = self.obstacles.free
+		ny, nx = free.shape
+		n = max(1, math.ceil(np.linalg.norm(b - a) / (GRID_STEP / 2)))
+		for k in range(n + 1):
+			x, y = a + (b - a) * k / n
+			if not free[min(max(int(y / GRID_STEP), 0), ny - 1), min(max(int(x / GRID_STEP), 0), nx - 1)]:
+				return False
+		return True
 
 	def gap_in_queue(self, checkout_id, client):
 		"""Free distance in front of a client in a line, None for the first one (only the
