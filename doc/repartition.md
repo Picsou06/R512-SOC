@@ -46,7 +46,7 @@ Entrée progressive, stock, caisses et sortie sont déjà codés. Il reste à le
 | Fait | N°  | Sous-étape                                                                                       | Responsable | Dates         |
 | ---- | --- | ------------------------------------------------------------------------------------------------ | ----------- | ------------- |
 | ☒    | 3.1 | Faire fonctionner tout le parcours avec les contacts et corriger les blocages dans les allées    | Evan        | 16 au 18 nov. |
-| ☐    | 3.2 | Relier les files au parcours complet et corriger les blocages autour des caisses                 | Thomas      | 16 au 18 nov. |
+| ☒    | 3.2 | Relier les files au parcours complet et corriger les blocages autour des caisses                 | Thomas      | 16 au 18 nov. |
 | ☒    | 3.3 | Coder les contrôles automatiques : stock jamais négatif, une caisse par client, un client par caisse, tous sortis | Clément     | 16 au 18 nov. |
 | ☐    | 3.4 | Lancer des simulations avec plusieurs valeurs de stock et de rythme d'entrée, et relever les résultats | Clément     | 19 au 20 nov. |
 | ☐    | 3.5 | Choisir et figer la configuration de référence à partir de ces résultats                         | Evan        | 21 au 22 nov. |
@@ -57,7 +57,7 @@ Entrée progressive, stock, caisses et sortie sont déjà codés. Il reste à le
 | ---- | --- | ----------------------------------------------------------------------------------------- | ----------- | ------------- |
 | ☐    | 4.1 | Coder le script qui génère les variantes de configuration : largeur des allées, position de la ressource, nombre de passages | Clément     | 23 au 24 nov. |
 | ☐    | 4.2 | Collecter les indicateurs au cours du temps : contacts, densité, débit, clients présents  | Thomas      | 23 au 25 nov. |
-| ☐    | 4.3 | Coder les simulations répétées avec plusieurs graines et l'agrégation des résultats       | Evan        | 23 au 25 nov. |
+| ☒    | 4.3 | Coder les simulations répétées avec plusieurs graines et l'agrégation des résultats       | Evan        | 23 au 25 nov. |
 | ☐    | 4.4 | Coder les courbes d'indicateurs, avec axes, unités, légende et paramètres                 | Thomas      | 25 au 27 nov. |
 | ☐    | 4.5 | Coder les instantanés du magasin à des instants choisis                                   | Clément     | 25 au 26 nov. |
 | ☐    | 4.6 | Lancer toutes les variantes et ranger les résultats et les figures                        | Clément     | 27 au 28 nov. |

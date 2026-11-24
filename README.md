@@ -40,6 +40,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 ├── passage_zones.py             # Figures des zones de passage et de croisement des trajets
 ├── check_queues.py              # Verification des files aux caisses (ordre de passage, un client a la fois)
 ├── check_invariants.py          # Controles automatiques du scenario complet (stock, caisses, sortie)
+├── aggregate.py                 # Simulations repetees (plusieurs graines) et agregation des indicateurs
 └── requirements.txt
 ```
 
@@ -115,6 +116,14 @@ sortie 1 en cas d'echec) :
 
 Les configurations de test de M2 sont dans `configs/tests/` (voir
 [`doc/configs_test.md`](doc/configs_test.md)).
+
+Simuler une configuration avec plusieurs graines et agreger les indicateurs (temps passe
+dans le magasin, contacts entre clients, chevauchement maximal, attente en caisse), avec
+moyenne et ecart-type sur les graines :
+
+```powershell
+.venv\Scripts\python aggregate.py configs/reference.json --seeds 5
+```
 
 ### Creer une variante de configuration
 

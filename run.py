@@ -14,6 +14,14 @@ def checkout_wait(client):
 	return by_state.get("to_checkout"), by_state.get("paying")
 
 
+def indicators(model):
+	durations = [c.log[-1][0] - c.log[0][0] for c in model.exited_clients]
+	contacts = [c.client_contact_count for c in model.clients]
+	waits = [end - start for c in model.exited_clients
+			 for start, end in [checkout_wait(c)] if end is not None]
+	return durations, contacts, waits
+
+
 def main():
 	parser = argparse.ArgumentParser(description="Shows the store described by a JSON config.")
 	parser.add_argument("config", nargs="?", default="configs/reference.json",
@@ -38,10 +46,7 @@ def main():
 			for time, state in client.log:
 				print(f"  {time:6.1f} s  {state}")
 	else:
-		durations = [c.log[-1][0] - c.log[0][0] for c in model.exited_clients]
-		contacts = [c.client_contact_count for c in model.clients]
-		waits = [end - start for c in model.exited_clients
-				 for start, end in [checkout_wait(c)] if end is not None]
+		durations, contacts, waits = indicators(model)
 		print(f"{len(model.exited_clients)} clients left out of {model.total_clients} "
 			  f"in {model.current_time:.1f} s")
 		print(f"  without product (out of stock): {sum(1 for c in model.clients if not c.items)}")
