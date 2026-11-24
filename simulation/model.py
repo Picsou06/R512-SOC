@@ -1,4 +1,6 @@
+import csv
 import math
+from pathlib import Path
 
 import mesa
 import numpy as np
@@ -17,6 +19,15 @@ JOIN_MARGIN = 0.3
 SEED = 1
 MAX_SEPARATION_SWEEPS = 20
 SEPARATION_TOLERANCE = 0.001
+LOCAL_RADIUS = 1.0
+# Indicators recorded at every time step (see `_record`). contact_pairs: pairs pushed apart
+# during the step; new_contacts: clients that go from "apart" to "in contact"; intensity:
+# overlap of a pair before correction, in m (total and max over the overlapping pairs);
+# density: clients present / free area; local_density: highest density around a client
+# (clients within LOCAL_RADIUS, itself included, divided by the disc area), in clients/m².
+SERIES = ("time", "present", "queuing", "exited", "contact_pairs", "new_contacts",
+		  "overlapping_pairs", "total_intensity",
+		  "max_intensity", "density", "local_density")
 
 
 class StoreModel(mesa.Model):
@@ -29,6 +40,8 @@ class StoreModel(mesa.Model):
 		self.current_time = 0.0
 		self.max_clients = max_clients
 		self.max_overlap = 0.0
+		self.series = {key: [] for key in SERIES}
+		self._step_contacts = (0, 0, 0, 0.0, 0.0)
 
 		width = self.config["store"]["width"]
 		height = self.config["store"]["height"]
@@ -286,9 +299,58 @@ class StoreModel(mesa.Model):
 		for client in active:
 			client.trajectory.append((time, *client.position, client.speed))
 		self.current_time = time
+		self._record()
 		self._admit()
 		if not self.pending and not self.present_clients:
 			self.running = False
+
+	def free_area(self):
+		"""Floor area left to the clients, in m²: the store minus walls, shelves and
+		checkouts (obstacles never overlap, see `validate_config`)."""
+		store = self.config["store"]["width"] * self.config["store"]["height"]
+		return store - sum(z["width"] * z["height"] for _, z in obstacles_of(self.config))
+
+	def local_density(self, clients):
+		"""Highest number of clients per m² around a client: the clients whose center is
+		within LOCAL_RADIUS of its own (itself included), divided by the disc area. It shows
+		the crowds that the mean density over the whole store hides."""
+		if not clients:
+			return 0.0
+		positions = np.array([c.position for c in clients])
+		offsets = positions[:, None] - positions[None, :]
+		near = np.hypot(offsets[..., 0], offsets[..., 1]) <= LOCAL_RADIUS
+		return int(near.sum(axis=1).max()) / (math.pi * LOCAL_RADIUS ** 2)
+
+	def save_series(self, path):
+		"""Writes the indicators recorded at every time step to a CSV file, one line per
+		time step, one column per indicator (see SERIES)."""
+		path = Path(path)
+		path.parent.mkdir(parents=True, exist_ok=True)
+		with open(path, "w", newline="", encoding="utf-8") as f:
+			writer = csv.writer(f)
+			writer.writerow(SERIES)
+			writer.writerows(zip(*(self.series[key] for key in SERIES)))
+
+	def _record(self):
+		"""Appends the indicators of the time step that just ended to `series`."""
+		present = self.present_clients
+		pairs, new, overlapping, total, peak = self._step_contacts
+		values = {
+			"time": self.current_time,
+			"present": len(present),
+			"queuing": sum(c.state in ("queuing", "paying") for c in present),
+			"exited": len(self.clients) - len(present),
+			"contact_pairs": pairs,
+			"new_contacts": new,
+			"overlapping_pairs": overlapping,
+			"total_intensity": total,
+			"max_intensity": peak,
+			"density": len(present) / self.free_area(),
+			"local_density": self.local_density(present),
+		}
+		for key in SERIES:
+			self.series[key].append(values[key])
+		self._step_contacts = (0, 0, 0, 0.0, 0.0)
 
 	def _separate_clients(self):
 		"""Projects the positions reached after `Client.step` onto the admissible configuration
@@ -303,11 +365,17 @@ class StoreModel(mesa.Model):
 			return
 		diameter = 2 * self.behavior["radius"]
 		touched = set()
-		for _ in range(MAX_SEPARATION_SWEEPS):
+		touched_pairs = set()
+		intensities = []
+		for sweep in range(MAX_SEPARATION_SWEEPS):
 			positions = np.array([c.position for c in present])
 			offsets = positions[:, None] - positions[None, :]
 			distances = np.hypot(offsets[..., 0], offsets[..., 1])
 			pairs = list(zip(*np.nonzero(np.triu(distances < diameter - SEPARATION_TOLERANCE, k=1))))
+			if sweep == 0:
+				# Intensity of a contact: the overlap the clients wanted before correction.
+				intensities = [diameter - float(distances[i, j]) for i, j in pairs]
+			touched_pairs.update(pairs)
 			if not pairs:
 				break
 			for i, j in pairs:
@@ -326,11 +394,15 @@ class StoreModel(mesa.Model):
 		for i, j in zip(*np.nonzero(np.triu(distances < diameter, k=1))):
 			residual = diameter - float(distances[i, j])
 			self.max_overlap = max(self.max_overlap, residual)
+		new = 0
 		for index, client in enumerate(present):
 			in_contact = index in touched
 			if in_contact and not client.in_client_contact:
 				client.client_contact_count += 1
+				new += 1
 			client.in_client_contact = in_contact
+		self._step_contacts = (len(touched_pairs), new, len(intensities), sum(intensities),
+							   max(intensities, default=0.0))
 
 	def simulate(self, max_duration=3600.0):
 		while self.running and self.current_time < max_duration:

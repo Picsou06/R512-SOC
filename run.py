@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from simulation.config import load_config
+from simulation.indicators import indicator_figure
 from simulation.model import StoreModel
 from simulation.visualization import show_store, speed_figure, trajectory_figure
 
@@ -21,6 +22,8 @@ def main():
 	parser.add_argument("--output", help="save the image to this file instead of opening a window")
 	parser.add_argument("--simulate", action="store_true",
 						help="simulate the clients until they leave and plot trajectory and speed")
+	parser.add_argument("--series", help="with --simulate, save the indicators of every time "
+										  "step to this CSV file")
 	args = parser.parse_args()
 
 	if not args.simulate:
@@ -30,6 +33,9 @@ def main():
 		return
 
 	model = StoreModel(args.config).simulate()
+	if args.series:
+		model.save_series(args.series)
+		print(f"Indicators saved: {args.series}")
 	if not model.exited_clients:
 		sys.exit("No client left the store: nothing to plot.")
 	if len(model.clients) <= 5:
@@ -51,7 +57,8 @@ def main():
 			  f"maximum remaining overlap {model.max_overlap:.3f} m")
 		if waits:
 			print(f"  checkout wait: mean {sum(waits) / len(waits):.1f} s, max {max(waits):.1f} s")
-	figures = {"": trajectory_figure(model), "_speed": speed_figure(model)}
+	figures = {"": trajectory_figure(model), "_speed": speed_figure(model),
+			   "_indicators": indicator_figure(model)}
 	if args.output:
 		output = Path(args.output)
 		output.parent.mkdir(parents=True, exist_ok=True)
