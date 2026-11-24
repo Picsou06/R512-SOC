@@ -21,6 +21,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 │   ├── configs_test.md          # Description des configurations de test de M2
 │   ├── contact_model.md         # Modele de contact et correction des positions (M2)
 │   ├── files_caisses.md         # Choix de la caisse et controle des files (M2)
+│   ├── resultats_m3.md          # Resultats des simulations selon le stock et le rythme d'entree (M3)
 │   └── figures/                 # Figures citees dans la documentation
 ├── configs/
 │   ├── reference.json           # Configuration de reference
@@ -41,6 +42,7 @@ Le detail des objectifs, de la problematique et du perimetre fonctionnel se trou
 ├── check_queues.py              # Verification des files aux caisses (ordre de passage, un client a la fois)
 ├── check_invariants.py          # Controles automatiques du scenario complet (stock, caisses, sortie)
 ├── aggregate.py                 # Simulations repetees (plusieurs graines) et agregation des indicateurs
+├── sweep.py                     # Simulations pour plusieurs valeurs de stock et de rythme d'entree
 └── requirements.txt
 ```
 
@@ -112,6 +114,15 @@ sortie 1 en cas d'echec) :
 
 ```powershell
 .venv\Scripts\python check_invariants.py configs/reference.json configs/tests/*.json --seeds 3
+```
+
+Lancer le scenario complet pour plusieurs valeurs de stock (facteur applique au stock de
+chaque produit) et de rythme d'entree (intervalle entre deux clients), avec les invariants
+controles a chaque pas, et relever les resultats dans `outputs/sweep.csv` (une ligne par
+simulation) et `outputs/sweep_mean.csv` (moyenne sur les graines) :
+
+```powershell
+.venv\Scripts\python sweep.py --stock-factors 0.5 1 2 4 --intervals 0.5 1 1.5 3 --seeds 2
 ```
 
 Les configurations de test de M2 sont dans `configs/tests/` (voir

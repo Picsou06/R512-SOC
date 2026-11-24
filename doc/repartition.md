@@ -48,7 +48,7 @@ Entrée progressive, stock, caisses et sortie sont déjà codés. Il reste à le
 | ☒    | 3.1 | Faire fonctionner tout le parcours avec les contacts et corriger les blocages dans les allées    | Evan        | 16 au 18 nov. |
 | ☒    | 3.2 | Relier les files au parcours complet et corriger les blocages autour des caisses                 | Thomas      | 16 au 18 nov. |
 | ☒    | 3.3 | Coder les contrôles automatiques : stock jamais négatif, une caisse par client, un client par caisse, tous sortis | Clément     | 16 au 18 nov. |
-| ☐    | 3.4 | Lancer des simulations avec plusieurs valeurs de stock et de rythme d'entrée, et relever les résultats | Clément     | 19 au 20 nov. |
+| ☒    | 3.4 | Lancer des simulations avec plusieurs valeurs de stock et de rythme d'entrée, et relever les résultats | Clément     | 19 au 20 nov. |
 | ☐    | 3.5 | Choisir et figer la configuration de référence à partir de ces résultats                         | Evan        | 21 au 22 nov. |
 
 ## M4 : les indicateurs et la comparaison (23 au 29 novembre)
