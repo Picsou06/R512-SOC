@@ -4,6 +4,7 @@ units, has a legend and states the parameters of the simulation that produced it
 import matplotlib.pyplot as plt
 import numpy as np
 
+from simulation.config import profiles_text
 from simulation.model import LOCAL_RADIUS
 
 TEXT = "#2f3b45"
@@ -47,8 +48,8 @@ def parameters_text(model):
 	checkouts = sum(c["open"] for c in model.config.get("checkouts", []))
 	return (f"config “{model.config['name']}” · {arrivals} · {checkouts} open checkouts · "
 			f"stock: {stocks}\n"
-			f"time step {model.time_step:g} s · radius {b['radius']:g} m · "
-			f"max speed {b['max_speed']:g} m/s · pick {b['pick_time']:g} s · "
+			f"time step {model.time_step:g} s · profiles: {profiles_text(b['profiles'])} · "
+			f"pick {b['pick_time']:g} s · "
 			f"payment {p['payment_base_time']:g} s + {p['payment_time_per_item']:g} s per item · "
 			f"free area {model.free_area():.0f} m²")
 

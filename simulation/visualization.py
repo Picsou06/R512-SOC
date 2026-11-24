@@ -7,7 +7,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, FancyBboxPatch, Patch, Rectangle
 
 from simulation.client import STATES
-from simulation.config import DIRECTIONS, door_interval
+from simulation.config import DIRECTIONS, door_interval, profiles_text
 
 FLOOR = "#f7f3ea"
 TILE = "#e9e2d3"
@@ -251,12 +251,13 @@ def _legend(config):
 def trajectory_figure(model):
 	fig, ax = plt.subplots(figsize=(11, 9))
 	draw_store(model.config, ax)
+	max_speed = max(p["max_speed"] for p in model.behavior["profiles"])
 	for client in model.clients:
 		trace = np.array(client.trajectory)
 		points = trace[:, 1:3].reshape(-1, 1, 2)
 		segments = np.concatenate([points[:-1], points[1:]], axis=1)
 		lines = LineCollection(segments, cmap="viridis", linewidth=3, zorder=9,
-							   norm=plt.Normalize(0, model.behavior["max_speed"]))
+							   norm=plt.Normalize(0, max_speed))
 		lines.set_array(trace[1:, 3])
 		ax.add_collection(lines)
 		for time, state in client.log if len(model.clients) <= 5 else []:
@@ -272,8 +273,7 @@ def trajectory_figure(model):
 	bar = fig.colorbar(lines, ax=ax, shrink=0.6, pad=0.02)
 	bar.set_label("speed (m/s)")
 	b, p = model.behavior, model.parameters
-	ax.text(0, -0.2, f"time step {model.time_step} s · radius {b['radius']} m · "
-					 f"max speed {b['max_speed']} m/s · acceleration {b['acceleration']} m/s² · "
+	ax.text(0, -0.2, f"time step {model.time_step} s · profiles: {profiles_text(b['profiles'])} · "
 					 f"braking {b['deceleration']} m/s² · lateral {b['lateral_acceleration']} m/s² · "
 					 f"pick {b['pick_time']} s · "
 					 f"payment {p['payment_base_time']} s + {p['payment_time_per_item']} s per item",
@@ -283,6 +283,7 @@ def trajectory_figure(model):
 
 def speed_figure(model):
 	fig, ax = plt.subplots(figsize=(10, 4))
+	max_speed = model.clients[0].profile["max_speed"]
 	for client in model.clients[:1]:
 		trace = np.array(client.trajectory)
 		ax.plot(trace[:, 0], trace[:, 3], color=TEXT, linewidth=1.5, label=client.identifier)
@@ -290,11 +291,11 @@ def speed_figure(model):
 		for (start, state), (end, _) in zip(log[1:], log[2:]):
 			if state in STATE_COLORS:
 				ax.axvspan(start, end, color=STATE_COLORS[state], alpha=0.15, linewidth=0)
-				ax.text((start + end) / 2, model.behavior["max_speed"] * 1.08,
+				ax.text((start + end) / 2, max_speed * 1.08,
 						STATES[state], ha="center", fontsize=8, color=STATE_COLORS[state])
 	ax.set_xlabel("time (s)")
 	ax.set_ylabel("speed (m/s)")
-	ax.set_ylim(0, model.behavior["max_speed"] * 1.2)
+	ax.set_ylim(0, max_speed * 1.2)
 	ax.set_xlim(left=0)
 	for side in ("top", "right"):
 		ax.spines[side].set_visible(False)

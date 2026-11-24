@@ -8,8 +8,8 @@ ENTRANCE_TYPES = ("entrance", "entrance_exit")
 EXIT_TYPES = ("exit", "entrance_exit")
 WALL_TYPES = ("shelf", "wall", "one_way")
 DIRECTIONS = {"down": (0.0, -1.0), "up": (0.0, 1.0), "left": (-1.0, 0.0), "right": (1.0, 0.0)}
-BEHAVIOR = ("radius", "max_speed", "acceleration", "deceleration", "lateral_acceleration",
-			"pick_time")
+BEHAVIOR = ("deceleration", "lateral_acceleration", "pick_time")
+PROFILE = ("radius", "max_speed", "acceleration", "weight")
 PARAMETERS = ("time_step", "ball_radius", "checkout_distance", "payment_base_time",
 			  "payment_time_per_item")
 
@@ -145,6 +145,20 @@ def validate_config(config):
 	for key in BEHAVIOR:
 		if config["client_behavior"].get(key, -1) < 0:
 			raise ValueError(f"client_behavior: {key} missing or negative")
+	profiles = config["client_behavior"].get("profiles")
+	if not profiles:
+		raise ValueError("client_behavior: profiles missing or empty")
+	names = [p.get("name") for p in profiles]
+	if len(names) != len(set(names)):
+		raise ValueError("client_behavior: profile names must be unique")
+	for profile in profiles:
+		for key in PROFILE:
+			if profile.get(key, -1) < 0:
+				raise ValueError(f"client_behavior: profile {profile.get('name')}: {key} "
+								 f"missing or negative")
+		if profile["weight"] == 0:
+			raise ValueError(f"client_behavior: profile {profile.get('name')}: weight must be "
+							 f"strictly positive")
 
 	doors = {d["name"]: d for d in config["doors"]}
 	client_ids = [c["id"] for c in config["clients"]]
@@ -217,3 +231,7 @@ def rectangle(zone):
 def door_interval(door):
 	start = door["x"] if door["wall"] in ("bottom", "top") else door["y"]
 	return start, start + door["width"]
+
+
+def profiles_text(profiles):
+	return ", ".join(f"{p['name']} {p['radius']:g} m/{p['max_speed']:g} m/s" for p in profiles)

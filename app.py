@@ -129,9 +129,8 @@ def StoreView(model, transition_ms, collision_boxes, distance_mode, labels):
 	layer = "position:absolute;inset:0;width:100%;height:100%"
 
 	few = model.total_clients <= MANY_CLIENTS
-	radius = model.behavior["radius"]
-	moving = [_client_svg(client, frame, radius, transition_ms, few, labels).key(client.identifier)
-			  for client in model.present_clients]
+	moving = [_client_svg(client, frame, client.profile["radius"], transition_ms, few, labels)
+			  .key(client.identifier) for client in model.present_clients]
 	zones = [HoverZone(name, tag, attributes, hovered).key(name)
 			 for name, (tag, attributes, _) in targets.items()]
 

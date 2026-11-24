@@ -55,14 +55,15 @@ def run_trip(task):
 	field = fields[goal]
 	if math.isinf(field.value(start)):
 		return {"goal": goal, "start": start, "status": "no_path", "penetration": 0.0, "wrong_way": 0.0}
-	client = Client(model, "probe", start, [{"state": "to_product", "field": field}])
+	profile = max(model.profiles, key=lambda p: p["radius"])
+	client = Client(model, "probe", start, [{"state": "to_product", "field": field}], profile)
 	client.heading = np.array([math.cos(angle), math.sin(angle)])
 	penetration = wrong_way = elapsed = 0.0
 	while client.state != "exited" and elapsed < MAX_DURATION:
 		before = client.position.copy()
 		client.step()
 		elapsed += model.time_step
-		penetration = max(penetration, -model.obstacles.distance(client.position))
+		penetration = max(penetration, -model.obstacles.distance(client.position, profile["radius"]))
 		wrong_way = max(wrong_way, wrong_way_move(model, client.position, client.position - before))
 	status = "arrived" if client.state == "exited" else "stuck"
 	client.remove()
@@ -83,7 +84,7 @@ def start_positions(store, generator):
 			angle = generator.uniform(0, 2 * math.pi)
 			distance = obstacles.min_distance + generator.uniform(0, NEAR_OBSTACLE_GAP)
 			starts.append((float(x + distance * math.cos(angle)), float(y + distance * math.sin(angle))))
-	return [s for s in starts if obstacles.distance(s) >= 0]
+	return [s for s in starts if obstacles.distance(s, store.max_radius) >= 0]
 
 
 def main():

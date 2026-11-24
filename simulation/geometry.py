@@ -66,42 +66,42 @@ class Obstacles:
 			direction[(x > x0) & (x < x1) & (y > y0) & (y < y1)] = sense
 		return clearance >= 0, cost, direction
 
-	def push_out(self, position, iterations=10, tolerance=0.01):
+	def push_out(self, position, radius, iterations=10, tolerance=0.01):
+		min_distance = radius + self.ball_radius
 		p = np.array(position, dtype=float)
 		if len(self.balls):
 			for _ in range(iterations):
 				offsets = p - self.balls
 				distances = np.hypot(offsets[:, 0], offsets[:, 1])
 				j = int(np.argmin(distances))
-				if distances[j] >= self.min_distance:
+				if distances[j] >= min_distance:
 					break
-				p = self.balls[j] + offsets[j] / max(distances[j], 1e-12) * self.min_distance
-		r = self.client_radius
-		p = np.clip(p, [r, r], [self.width - r, self.height - r])
-		return p, self._normal(p, tolerance)
+				p = self.balls[j] + offsets[j] / max(distances[j], 1e-12) * min_distance
+		p = np.clip(p, [radius, radius], [self.width - radius, self.height - radius])
+		return p, self._normal(p, radius, tolerance)
 
-	def _normal(self, p, tolerance):
-		r = self.client_radius
+	def _normal(self, p, radius, tolerance):
+		min_distance = radius + self.ball_radius
 		normal = np.zeros(2)
-		for gap, direction in ((p[0] - r, (1, 0)), (self.width - r - p[0], (-1, 0)),
-							   (p[1] - r, (0, 1)), (self.height - r - p[1], (0, -1))):
+		for gap, direction in ((p[0] - radius, (1, 0)), (self.width - radius - p[0], (-1, 0)),
+							   (p[1] - radius, (0, 1)), (self.height - radius - p[1], (0, -1))):
 			if gap < tolerance:
 				normal += direction
 		if len(self.balls):
 			offsets = p - self.balls
 			distances = np.hypot(offsets[:, 0], offsets[:, 1])
-			near = distances < self.min_distance + tolerance
+			near = distances < min_distance + tolerance
 			normal += (offsets[near] / distances[near, None]).sum(axis=0)
 		norm = np.linalg.norm(normal)
 		return normal / norm if norm > 1e-12 else None
 
-	def distance(self, point):
+	def distance(self, point, radius):
 		x, y = point
-		r = self.client_radius
-		distances = [x - r, self.width - r - x, y - r, self.height - r - y]
+		min_distance = radius + self.ball_radius
+		distances = [x - radius, self.width - radius - x, y - radius, self.height - radius - y]
 		if len(self.balls):
 			offsets = self.balls - np.asarray(point, dtype=float)
-			distances.append(float(np.hypot(offsets[:, 0], offsets[:, 1]).min()) - self.min_distance)
+			distances.append(float(np.hypot(offsets[:, 0], offsets[:, 1]).min()) - min_distance)
 		return min(distances)
 
 	def respect_direction(self, old, new):

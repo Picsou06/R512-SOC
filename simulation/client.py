@@ -21,9 +21,10 @@ STATES = {
 
 class Client(ContinuousSpaceAgent):
 
-	def __init__(self, model, identifier, start, steps):
+	def __init__(self, model, identifier, start, steps, profile):
 		super().__init__(model.space, model)
 		self.identifier = identifier
+		self.profile = profile
 		self.position = np.array(start, dtype=float)
 		self.heading = np.array([0.0, 1.0])
 		self.speed = 0.0
@@ -101,7 +102,8 @@ class Client(ContinuousSpaceAgent):
 				if tail is None:
 					self._move(dt)
 				else:
-					free = float(np.linalg.norm(tail - self.position)) - self.model.queue_spacing
+					last = self.model.queues[self.checkout][-1]
+					free = float(np.linalg.norm(tail - self.position)) - self.model.queue_spacing(self, last)
 					self._move(dt, max(0.0, free), toward=tail)
 		elif self.state == "queuing":
 			gap = self.model.gap_in_queue(self.checkout, self)
@@ -120,6 +122,7 @@ class Client(ContinuousSpaceAgent):
 		when given, is a point to walk to in a straight line instead of following the field
 		(the end of a line, with `gap` the distance left to it)."""
 		b = self.model.behavior
+		profile = self.profile
 		obstacles = self.model.obstacles
 		remaining = self.field.value(self.position)
 		if gap is not None:
@@ -132,29 +135,30 @@ class Client(ContinuousSpaceAgent):
 			wanted = self.field.direction(self.position)
 		else:
 			wanted = (toward - self.position) / max(float(np.linalg.norm(toward - self.position)), 1e-9)
-		gap =self.model.random.uniform(-HEADING_NOISE, HEADING_NOISE)
+		gap = self.model.random.uniform(-HEADING_NOISE, HEADING_NOISE)
 		if wanted is not None:
 			gap += signed_angle(self.heading, wanted)
+		turn = gap + self.model.avoidance_bias.get(self, 0.0)
 		max_turn = b["lateral_acceleration"] / max(self.speed, MIN_TURN_SPEED) * dt
-		self.heading = _rotate(self.heading, max(-max_turn, min(max_turn, gap)))
+		self.heading = _rotate(self.heading, max(-max_turn, min(max_turn, turn)))
 
-		wanted_speed = min(b["max_speed"], math.sqrt(2 * b["deceleration"] * remaining), remaining / dt)
+		wanted_speed = min(profile["max_speed"], math.sqrt(2 * b["deceleration"] * remaining), remaining / dt)
 		wanted_speed *= max(0.0, math.cos(gap))
 		if wanted_speed > self.speed:
-			self.speed = min(wanted_speed, self.speed + b["acceleration"] * dt)
+			self.speed = min(wanted_speed, self.speed + profile["acceleration"] * dt)
 		else:
 			self.speed = max(wanted_speed, self.speed - b["deceleration"] * dt)
 
 		wanted_position = self.position + self.heading * self.speed * dt
 		if self.field.reachable(self.position):
 			wanted_position = obstacles.respect_direction(self.position, wanted_position)
-		new, self.normal = obstacles.push_out(wanted_position)
+		new, self.normal = obstacles.push_out(wanted_position, profile["radius"])
 		if self.normal is not None:
 			self.speed = min(self.speed, float(np.linalg.norm(new - self.position)) / dt)
 			if self.released:
 				self.contact_count += 1
 				self.released = False
-		elif obstacles.distance(new) > RELEASE_DISTANCE:
+		elif obstacles.distance(new, profile["radius"]) > RELEASE_DISTANCE:
 			self.released = True
 		self.position = new
 		return False

@@ -20,6 +20,10 @@ SEED = 1
 MAX_SEPARATION_SWEEPS = 20
 SEPARATION_TOLERANCE = 0.001
 LOCAL_RADIUS = 1.0
+AVOIDANCE_RADIUS = 1.5
+AVOIDANCE_ANGLE_COS = 0.5
+AVOIDANCE_GAIN = 0.6
+MAX_AVOIDANCE = 1.0
 # Indicators recorded at every time step (see `_record`). contact_pairs: pairs pushed apart
 # during the step; new_contacts: clients that go from "apart" to "in contact"; intensity:
 # overlap of a pair before correction, in m (total and max over the overlapping pairs);
@@ -35,6 +39,8 @@ class StoreModel(mesa.Model):
 		super().__init__(rng=rng)
 		self.config = load_config(config_path)
 		self.behavior = self.config["client_behavior"]
+		self.profiles = self.behavior["profiles"]
+		self.max_radius = max(p["radius"] for p in self.profiles)
 		self.parameters = self.config["parameters"]
 		self.time_step = self.parameters["time_step"]
 		self.current_time = 0.0
@@ -42,6 +48,7 @@ class StoreModel(mesa.Model):
 		self.max_overlap = 0.0
 		self.series = {key: [] for key in SERIES}
 		self._step_contacts = (0, 0, 0, 0.0, 0.0)
+		self.avoidance_bias = {}
 
 		width = self.config["store"]["width"]
 		height = self.config["store"]["height"]
@@ -49,7 +56,7 @@ class StoreModel(mesa.Model):
 
 		zones = [zone for _, zone in obstacles_of(self.config)]
 		directions = [(rectangle(z), DIRECTIONS[z["direction"]]) for z in one_way_zones(self.config)]
-		self.obstacles = Obstacles(zones, width, height, self.behavior["radius"],
+		self.obstacles = Obstacles(zones, width, height, self.max_radius,
 								   self.parameters["ball_radius"], directions)
 
 		self.stocks = {r["id"]: r["stock"] for r in self.config["resources"]}
@@ -58,7 +65,6 @@ class StoreModel(mesa.Model):
 		self.queues = {c: [] for c in open_checkouts}
 		self.served = {c: [] for c in open_checkouts}
 		self.checkout_log = []
-		self.queue_spacing = 2 * self.behavior["radius"] + QUEUE_GAP
 		self.fields = {}
 		self.clients = []
 		self.pending = self._arrivals()
@@ -100,10 +106,13 @@ class StoreModel(mesa.Model):
 		steps.append({"state": "to_checkout"})
 		steps.append({"state": "paying"})
 		steps.append({"state": "to_exit"})
-		return Client(self, description["id"], start, steps)
+		return Client(self, description["id"], start, steps, self._draw_profile())
 
 	def _draw_products(self, products):
 		return [self.random.choice(p) if isinstance(p, list) else p for p in products]
+
+	def _draw_profile(self):
+		return self.random.choices(self.profiles, weights=[p["weight"] for p in self.profiles])[0]
 
 	def take(self, product_id):
 		if self.stocks[product_id] <= 0:
@@ -124,10 +133,10 @@ class StoreModel(mesa.Model):
 		return [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(n + 1)]
 
 	def _door_goal(self, door):
-		d = self.behavior["radius"] + OFFSET
+		d = self.max_radius + OFFSET
 		width = self.config["store"]["width"]
 		height = self.config["store"]["height"]
-		margin = min(self.behavior["radius"] + 0.1, door["width"] / 2)
+		margin = min(self.max_radius + 0.1, door["width"] / 2)
 		start, end = margin, door["width"] - margin
 		return {
 			"bottom": self._segment((door["x"] + start, d), (door["x"] + end, d)),
@@ -146,7 +155,7 @@ class StoreModel(mesa.Model):
 	def _product_goal(self, resource):
 		shelf = next(w for w in self.config["walls"] if w["id"] == resource["shelf"])
 		x, y = resource["x"], resource["y"]
-		d = self.behavior["radius"] + self.obstacles.thickness + OFFSET
+		d = self.max_radius + self.obstacles.thickness + OFFSET
 		if abs(x - shelf["x"]) < 1e-9 or abs(x - (shelf["x"] + shelf["width"])) < 1e-9:
 			x = x - d if abs(x - shelf["x"]) < 1e-9 else x + d
 			low = max(y - PRODUCT_SPREAD, shelf["y"])
@@ -190,10 +199,10 @@ class StoreModel(mesa.Model):
 		waiting = self.queues[checkout_id] + self.heading[checkout_id]
 		return sum(self.remaining_payment(c) for c in waiting)
 
-	def checkout_cost(self, checkout, start):
-		there = self.checkout_field(checkout).value(start)
+	def checkout_cost(self, checkout, client):
+		there = self.checkout_field(checkout).value(client.position)
 		back = self.exit_field().value(self._checkout_point(checkout))
-		walk = (there + back) / self.behavior["max_speed"]
+		walk = (there + back) / client.profile["max_speed"]
 		return walk + self.queue_wait(checkout["id"])
 
 	def choose_checkout(self, client):
@@ -201,13 +210,16 @@ class StoreModel(mesa.Model):
 		for checkout in self.config.get("checkouts", []):
 			if not checkout["open"]:
 				continue
-			cost = self.checkout_cost(checkout, client.position)
+			cost = self.checkout_cost(checkout, client)
 			if best is None or cost < best[0]:
 				best = (cost, checkout)
 		checkout = best[1]
 		self.heading[checkout["id"]].append(client)
 		self.checkout_log.append((self.current_time, checkout["id"], client.identifier, "chosen"))
 		return checkout["id"], self.checkout_field(checkout)
+
+	def queue_spacing(self, a, b):
+		return a.profile["radius"] + b.profile["radius"] + QUEUE_GAP
 
 	def reaches_queue(self, checkout_id, client):
 		"""True when a client walking to the checkout has reached the end of its line.
@@ -221,7 +233,8 @@ class StoreModel(mesa.Model):
 		# Only right behind the last one: a client that comes from the side of a long line
 		# must first walk to its end (see `queue_tail`), instead of stopping where it is.
 		last = queue[-1]
-		return np.linalg.norm(client.position - last.position) <= self.queue_spacing + JOIN_MARGIN
+		return (np.linalg.norm(client.position - last.position)
+				<= self.queue_spacing(client, last) + JOIN_MARGIN)
 
 	def queue_tail(self, checkout_id, client):
 		"""Position of the last client of the line when a client walking to the checkout must
@@ -235,7 +248,8 @@ class StoreModel(mesa.Model):
 		if not queue:
 			return None
 		last = queue[-1]
-		if client.field.value(client.position) >= client.field.value(last.position) + self.queue_spacing:
+		if (client.field.value(client.position)
+				>= client.field.value(last.position) + self.queue_spacing(client, last)):
 			return None
 		return last.position if self.in_sight(client.position, last.position) else None
 
@@ -265,7 +279,7 @@ class StoreModel(mesa.Model):
 		# the path, so that no one walks past it.
 		along = client.field.value(client.position) - client.field.value(ahead.position)
 		straight = float(np.linalg.norm(client.position - ahead.position))
-		return max(0.0, min(along, straight) - self.queue_spacing)
+		return max(0.0, min(along, straight) - self.queue_spacing(client, ahead))
 
 	def join_queue(self, checkout_id, client):
 		self.heading[checkout_id].remove(client)
@@ -292,6 +306,7 @@ class StoreModel(mesa.Model):
 
 	def step(self):
 		active = self.present_clients
+		self.avoidance_bias = self._avoidance_bias(active)
 		for client in active:
 			client.step()
 		self._separate_clients()
@@ -352,6 +367,34 @@ class StoreModel(mesa.Model):
 			self.series[key].append(values[key])
 		self._step_contacts = (0, 0, 0, 0.0, 0.0)
 
+	def _avoidance_bias(self, present):
+		"""Lateral steering angle (rad) each client adds to its heading to anticipate a nearby
+		client ahead."""
+		bias = {client: 0.0 for client in present}
+		if len(present) < 2:
+			return bias
+		positions = np.array([c.position for c in present])
+		headings = np.array([_wanted_direction(c) for c in present])
+		states = np.array([c.state for c in present], dtype=object)
+		checkouts = np.array(["" if c.checkout is None else c.checkout for c in present], dtype=object)
+
+		offsets = positions[None, :, :] - positions[:, None, :]
+		distances = np.hypot(offsets[..., 0], offsets[..., 1])
+		np.fill_diagonal(distances, math.inf)
+		ahead = offsets[..., 0] * headings[:, None, 0] + offsets[..., 1] * headings[:, None, 1]
+		side = headings[:, None, 0] * offsets[..., 1] - headings[:, None, 1] * offsets[..., 0]
+
+		valid = (distances < AVOIDANCE_RADIUS) & (ahead > AVOIDANCE_ANGLE_COS * distances)
+		valid[np.isin(states, ("queuing", "paying", "picking")), :] = False
+		own_queue = ((states == "to_checkout")[:, None] & (checkouts[:, None] == checkouts[None, :])
+					 & (checkouts[:, None] != ""))
+		valid &= ~own_queue
+
+		strength = np.where(valid, (AVOIDANCE_RADIUS - distances) / AVOIDANCE_RADIUS, 0.0)
+		signed = np.where(side >= 0, -1.0, 1.0)
+		total = np.clip((strength * signed).sum(axis=1) * AVOIDANCE_GAIN, -MAX_AVOIDANCE, MAX_AVOIDANCE)
+		return dict(zip(present, total))
+
 	def _separate_clients(self):
 		"""Projects the positions reached after `Client.step` onto the admissible configuration
 		where no two clients overlap and none penetrates an obstacle, following Maury's idea:
@@ -363,7 +406,8 @@ class StoreModel(mesa.Model):
 			for client in present:
 				client.in_client_contact = False
 			return
-		diameter = 2 * self.behavior["radius"]
+		radii = np.array([c.profile["radius"] for c in present])
+		diameters = radii[:, None] + radii[None, :]
 		touched = set()
 		touched_pairs = set()
 		intensities = []
@@ -371,10 +415,10 @@ class StoreModel(mesa.Model):
 			positions = np.array([c.position for c in present])
 			offsets = positions[:, None] - positions[None, :]
 			distances = np.hypot(offsets[..., 0], offsets[..., 1])
-			pairs = list(zip(*np.nonzero(np.triu(distances < diameter - SEPARATION_TOLERANCE, k=1))))
+			pairs = list(zip(*np.nonzero(np.triu(distances < diameters - SEPARATION_TOLERANCE, k=1))))
 			if sweep == 0:
 				# Intensity of a contact: the overlap the clients wanted before correction.
-				intensities = [diameter - float(distances[i, j]) for i, j in pairs]
+				intensities = [diameters[i, j] - float(distances[i, j]) for i, j in pairs]
 			touched_pairs.update(pairs)
 			if not pairs:
 				break
@@ -385,14 +429,14 @@ class StoreModel(mesa.Model):
 				delta = a.position - b.position
 				distance = float(np.linalg.norm(delta))
 				direction = delta / distance if distance > 1e-9 else np.array([1.0, 0.0])
-				push = (diameter - distance) / 2
-				a.position = self.obstacles.push_out(a.position + direction * push)[0]
-				b.position = self.obstacles.push_out(b.position - direction * push)[0]
+				push = (diameters[i, j] - distance) / 2
+				a.position = self.obstacles.push_out(a.position + direction * push, a.profile["radius"])[0]
+				b.position = self.obstacles.push_out(b.position - direction * push, b.profile["radius"])[0]
 		positions = np.array([c.position for c in present])
 		offsets = positions[:, None] - positions[None, :]
 		distances = np.hypot(offsets[..., 0], offsets[..., 1])
-		for i, j in zip(*np.nonzero(np.triu(distances < diameter, k=1))):
-			residual = diameter - float(distances[i, j])
+		for i, j in zip(*np.nonzero(np.triu(distances < diameters, k=1))):
+			residual = diameters[i, j] - float(distances[i, j])
 			self.max_overlap = max(self.max_overlap, residual)
 		new = 0
 		for index, client in enumerate(present):
@@ -408,3 +452,11 @@ class StoreModel(mesa.Model):
 		while self.running and self.current_time < max_duration:
 			self.step()
 		return self
+
+
+def _wanted_direction(client):
+	if client.field is not None:
+		direction = client.field.direction(client.position)
+		if direction is not None:
+			return direction
+	return client.heading

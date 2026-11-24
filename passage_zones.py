@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LogNorm
 
+from simulation.config import profiles_text
 from simulation.model import StoreModel
 from simulation.visualization import TEXT, draw_store
 
@@ -37,7 +38,7 @@ def passage_maps(model, by_time):
 	overlap = np.zeros(shape)
 	kinds = {"same direction": 0.0, "crossing": 0.0, "head-on": 0.0, "one stopped": 0.0}
 	pairs = set()
-	diameter = 2 * model.behavior["radius"]
+	radii = np.array([c.profile["radius"] for c in model.clients])
 	visits = {}
 
 	def cell(x, y):
@@ -53,7 +54,9 @@ def passage_maps(model, by_time):
 		data = np.array(present)
 		offsets = data[:, None, 1:3] - data[None, :, 1:3]
 		distance = np.hypot(offsets[..., 0], offsets[..., 1])
-		for i, j in zip(*np.nonzero(np.triu(distance < diameter, k=1))):
+		numbers = data[:, 0].astype(int)
+		diameters = radii[numbers][:, None] + radii[numbers][None, :]
+		for i, j in zip(*np.nonzero(np.triu(distance < diameters, k=1))):
 			a, b = data[i], data[j]
 			overlap[cell((a[1] + b[1]) / 2, (a[2] + b[2]) / 2)] += model.time_step
 			pairs.add((int(a[0]), int(b[0])))
@@ -131,7 +134,7 @@ def map_figure(model, grid, title, label, colormap, log=False, marks=()):
 	ax.text(0, -0.2, f"model M1 (clients ignore each other) · {model.total_clients} clients"
 					 + (f", one every {flow['interval']} s" if flow.get("interval") else "")
 					 + f" · cells {CELL} m x {CELL} m · time step {model.time_step} s · "
-					   f"radius {b['radius']} m · max speed {b['max_speed']} m/s · "
+					   f"profiles: {profiles_text(b['profiles'])} · "
 					   f"pick {b['pick_time']} s · payment {p['payment_base_time']} s "
 					   f"+ {p['payment_time_per_item']} s per item",
 			transform=ax.transAxes, fontsize=8, color="#6b7780")
